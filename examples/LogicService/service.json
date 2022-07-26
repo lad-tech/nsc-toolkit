@@ -1,0 +1,31 @@
+{
+  "name": "Logic",
+  "description": "busines logic BFF",
+  "methods": {
+    "WeirdSum": {
+      "action": "weirdsum",
+      "description": "Weird sum logic. Gets two numbers and adds them. The result is a length Fibonacci sequence. Add the sequence and get the result",
+      "options": {
+        "cache": 5,
+        "runTimeValidation": {
+          "request": true
+        }
+      },
+      "request": {
+        "type": "object",
+        "properties": {
+          "a": { "type": "number" },
+          "b": {"type": "number" }
+        },
+        "required": ["a", "b"]
+      },
+      "response": {
+        "type": "object",
+        "properties": {
+          "result": { "type": "number" }
+        },
+        "required": ["result"]
+      }
+    }
+  }
+}

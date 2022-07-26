@@ -1,0 +1,12 @@
+**/.idea
+**/.vscode
+**/node_modules
+**/dist
+**/.nyc_output
+**/coverage
+/.scannerwork/
+
+### macOS stuff
+.DS_Store
+.AppleDouble
+.LSOverride
