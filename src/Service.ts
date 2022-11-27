@@ -24,7 +24,7 @@ export class Service<E extends Emitter = {}> extends Root {
   private rootSpans = new Map<string, Span>();
 
   constructor(private options: ServiceOptions<E>) {
-    super(options.brokerConnection, options.cache?.service, options.loggerOutputFormatter);
+    super(options.brokerConnection, options.loggerOutputFormatter);
 
     this.serviceName = options.name;
     this.logger.setLocation(this.serviceName);
