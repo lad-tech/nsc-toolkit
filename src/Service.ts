@@ -110,7 +110,11 @@ export class Service<E extends Emitter = {}> extends Root {
       });
     }
 
-    dependences['logger'] = new Logs.Logger({ location: `${this.serviceName}.${action}`, metadata: baggage });
+    dependences['logger'] = new Logs.Logger({
+      location: `${this.serviceName}.${action}`,
+      metadata: baggage,
+      outputFormatter: this.options.loggerOutputFormatter,
+    });
     return dependences;
   }
 
