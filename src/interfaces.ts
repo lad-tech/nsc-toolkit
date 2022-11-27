@@ -2,6 +2,7 @@
 
 import type { NatsConnection } from 'nats';
 import type { Client } from './Client';
+import type { Logs } from '@lad-tech/toolbelt';
 
 export interface MethodOptions {
   useStream?: {
@@ -70,6 +71,7 @@ export interface ServiceOptions<E extends Emitter> {
   methods: Method[];
   events: keyof E extends [] ? [] : [keyof E];
   cache?: CacheSettings;
+  loggerOutputFormatter?: Logs.OutputFormatter;
 }
 
 export interface Listener<E extends Emitter> {

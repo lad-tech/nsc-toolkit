@@ -6,11 +6,14 @@ import { Logs } from '@lad-tech/toolbelt';
 export class Root {
   protected SERVICE_SUBJECT_FOR_GET_HTTP_SETTINGS = 'get_http_settings';
   protected CACHE_SERVICE_KEY = 'CACHE';
-  protected
   protected logger: Logs.Logger;
 
-  constructor(protected brocker: NatsConnection, cache?: CacheService) {
-    this.logger = new Logs.Logger();
+  constructor(
+    protected brocker: NatsConnection,
+    protected cache?: CacheService,
+    outputFormatter?: Logs.OutputFormatter,
+  ) {
+    this.logger = new Logs.Logger({ outputFormatter });
   }
 
   protected castToNumber(value?: string) {
