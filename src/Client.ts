@@ -16,6 +16,7 @@ import { EventEmitter, Readable } from 'stream';
 import * as http from 'http';
 import { createHash } from 'crypto';
 import { setTimeout } from 'timers/promises';
+import type { Logs } from '@lad-tech/toolbelt';
 import Ajv from 'ajv';
 
 export class Client<E extends Emitter = {}> extends Root {
@@ -27,8 +28,9 @@ export class Client<E extends Emitter = {}> extends Root {
     private serviceName: string,
     private baggage?: Baggage,
     private cache?: CacheSettings,
+    loggerOutputFormatter?: Logs.OutputFormatter
   ) {
-    super(natsConnection);
+    super(natsConnection, loggerOutputFormatter);
     this.logger.setLocation(serviceName);
   }
 

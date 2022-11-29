@@ -33,6 +33,7 @@ export type ClientService<C = Client> = new (
   natsConnection: NatsConnection,
   baggage?: Baggage,
   cache?: CacheSettings,
+  loggerOutputFormatter?: Logs.OutputFormatter,
 ) => C;
 
 export type Baggage = {
