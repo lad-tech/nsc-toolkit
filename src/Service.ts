@@ -170,7 +170,7 @@ export class Service<E extends Emitter = {}> extends Root {
   }
 
   public buildService<C extends ClientService>(Client: C, baggage?: Baggage) {
-    return new Client(this.brocker, baggage, this.options.cache) as InstanceType<C>;
+    return new Client(this.brocker, baggage, this.options.cache, this.options.loggerOutputFormatter) as InstanceType<C>;
   }
 
   /**

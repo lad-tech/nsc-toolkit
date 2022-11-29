@@ -1,6 +1,6 @@
 {
   "name": "@lad-tech/nsc-toolkit",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Toolkit for create microservices around NATS",
   "main": "dist/index.js",
   "types": "./dist/types/index.d.ts",
@@ -37,5 +37,4 @@
     "nats": "^2.6.1",
     "reflect-metadata": "^0.1.13"
   }
-
 }
