@@ -1,17 +1,14 @@
-import { Baggage } from './interfaces';
+import { Logs } from '@lad-tech/toolbelt';
 import * as opentelemetry from '@opentelemetry/api';
 import { NatsConnection } from 'nats';
-import { Logs } from '@lad-tech/toolbelt';
+import { Baggage } from './interfaces';
 
 export class Root {
   protected SERVICE_SUBJECT_FOR_GET_HTTP_SETTINGS = 'get_http_settings';
   protected CACHE_SERVICE_KEY = 'CACHE';
   protected logger: Logs.Logger;
 
-  constructor(
-    protected brocker: NatsConnection,
-    outputFormatter?: Logs.OutputFormatter,
-  ) {
+  constructor(protected brocker: NatsConnection, outputFormatter?: Logs.OutputFormatter) {
     this.logger = new Logs.Logger({ outputFormatter });
   }
 
