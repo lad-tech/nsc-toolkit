@@ -16,3 +16,4 @@ module.exports = {
     'footer-leading-blank': [1, 'always'],
   },
 };
+
