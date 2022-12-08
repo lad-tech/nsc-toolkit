@@ -12,6 +12,8 @@ import { Readable, Transform, pipeline } from 'stream';
 import { Logs } from '@lad-tech/toolbelt';
 import * as http from 'http';
 import * as os from 'os';
+import { setTimeout } from 'timers/promises';
+import { promisify } from 'util';
 
 export class Service<E extends Emitter = {}> extends Root {
   public emitter = {} as E;
@@ -23,6 +25,8 @@ export class Service<E extends Emitter = {}> extends Root {
   private subscriptions: Subscription[] = [];
   private httpMethods = new Map<string, Method>();
   private rootSpans = new Map<string, Span>();
+
+  private serviceInStoppingProcess = false;
 
   constructor(private options: ServiceOptions<E>) {
     super(options.brokerConnection, options.loggerOutputFormatter);
@@ -342,6 +346,7 @@ export class Service<E extends Emitter = {}> extends Root {
       }
 
       this.upProbeRoutes();
+      this.registerGracefulShutdown();
 
       this.logger.info('Service successfully started!');
     } catch (error) {
@@ -354,6 +359,74 @@ export class Service<E extends Emitter = {}> extends Root {
     }
   }
 
+  /**
+   * Correct finish all connections
+   */
+  private async cleanupAndExit() {
+    try {
+      const timeout = this.options.gracefulShutdown?.timeout || 1000;
+      this.logger.info('Closing Broker connection');
+      await Promise.race([this.options.brokerConnection.drain(), setTimeout(timeout)]);
+
+      if (this.httpServer) {
+        this.logger.info('Closing HTTP server');
+        const closeHttp = promisify(this.httpServer.close);
+        await Promise.race([closeHttp, setTimeout(timeout)]);
+      }
+
+      if (this.options.gracefulShutdown?.additional?.length) {
+        this.logger.info('Closing additional services');
+        for await (const service of this.options.gracefulShutdown?.additional) {
+          await Promise.race([service.close(), setTimeout(timeout)]);
+        }
+      }
+
+      if (this.httpProbServer) {
+        this.logger.info('Closing HTTP Prob server');
+        const closeHttp = promisify(this.httpProbServer.close);
+        await Promise.race([closeHttp, setTimeout(timeout)]);
+      }
+    } catch (error) {
+      this.logger.error('Fail correct finish service', error);
+    }
+
+    process.exit(0);
+  }
+
+  /**
+   * Handler for OS Signal
+   */
+  private handleSignal(signal: string) {
+    return () => {
+      this.logger.warn(`signal ${signal} received`);
+      this.cleanupAndExit();
+    };
+  }
+
+  /**
+   * Handler for Force OS Signal
+   */
+  private handleFatalError(message: string) {
+    return (err: any) => {
+      this.logger.error(message, err);
+      process.exit(1);
+    };
+  }
+
+  /**
+   * Register listeners for Graceful Shutdown
+   */
+  private registerGracefulShutdown() {
+    process.on('SIGINT', this.handleSignal('SIGINT'));
+    process.on('SIGQUIT', this.handleSignal('SIGQUIT'));
+    process.on('SIGTERM', this.handleSignal('SIGTERM'));
+    process.on('uncaughtException', this.handleFatalError('Uncaught exception'));
+    process.on('unhandledRejection', this.handleFatalError('Unhandled rejection'));
+  }
+
+  /**
+   * Up Probe Route for container orchestration service
+   */
   private upProbeRoutes() {
     if (this.httpProbServer) {
       return;
