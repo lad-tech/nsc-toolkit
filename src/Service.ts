@@ -17,6 +17,7 @@ export class Service<E extends Emitter = {}> extends Root {
   public emitter = {} as E;
   private serviceName: string;
   private httpServer?: http.Server;
+  private httpProbServer?: http.Server;
   protected httpPort?: number;
   protected ipAddress?: string;
   private subscriptions: Subscription[] = [];
@@ -216,7 +217,7 @@ export class Service<E extends Emitter = {}> extends Root {
     });
   }
 
-  private makeHttpStreamReponse(response: ServerResponse, data: Message<Readable>) {
+  private makeHttpStreamResponse(response: ServerResponse, data: Message<Readable>) {
     data.payload.on('error', error => {
       this.logger.error(error);
     });
@@ -250,7 +251,7 @@ export class Service<E extends Emitter = {}> extends Root {
         if (Method.settings.options?.useStream?.request) {
           const result = await this.handled(request, Method, baggage);
           if (Method.settings.options.useStream.response && result.payload instanceof Readable) {
-            this.makeHttpStreamReponse(response, result as Message<Readable>);
+            this.makeHttpStreamResponse(response, result as Message<Readable>);
             return;
           }
           this.makeHttpSingleResponse(response, result);
@@ -263,7 +264,7 @@ export class Service<E extends Emitter = {}> extends Root {
         const requestData = Buffer.concat(requestDataRaw).toString();
         const result = await this.handled(JSON.parse(requestData), Method, baggage);
         if (Method.settings.options?.useStream?.response && result.payload instanceof Readable) {
-          this.makeHttpStreamReponse(response, result as Message<Readable>);
+          this.makeHttpStreamResponse(response, result as Message<Readable>);
           return;
         }
         this.makeHttpSingleResponse(response, result);
@@ -335,9 +336,13 @@ export class Service<E extends Emitter = {}> extends Root {
           }
         }
       });
+
       if (this.httpMethods.size > 0) {
         await this.buildHTTPHandlers();
       }
+
+      this.upProbeRoutes();
+
       this.logger.info('Service successfully started!');
     } catch (error) {
       if (error instanceof Error) {
@@ -347,6 +352,22 @@ export class Service<E extends Emitter = {}> extends Root {
       }
       process.exit(1);
     }
+  }
+
+  private upProbeRoutes() {
+    if (this.httpProbServer) {
+      return;
+    }
+    this.httpProbServer = http.createServer();
+    this.httpProbServer.on('request', (request, response) => {
+      if (request.url === '/healthcheck' && request.method === 'GET') {
+        response.writeHead(200).end();
+        return;
+      }
+      response.writeHead(500).end();
+    });
+
+    this.httpProbServer.listen(8081);
   }
 
   /**
