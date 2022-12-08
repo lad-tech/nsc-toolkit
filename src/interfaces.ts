@@ -66,6 +66,10 @@ export interface CacheSettings {
   timeout: number;
 }
 
+export interface GracefulShutdownAdditionalService {
+  close: () => Promise<any>;
+}
+
 export interface ServiceOptions<E extends Emitter> {
   name: string;
   brokerConnection: NatsConnection;
@@ -73,6 +77,10 @@ export interface ServiceOptions<E extends Emitter> {
   events: keyof E extends [] ? [] : [keyof E];
   cache?: CacheSettings;
   loggerOutputFormatter?: Logs.OutputFormatter;
+  gracefulShutdown?: {
+    additional?: GracefulShutdownAdditionalService[];
+    timeout?: number;
+  };
 }
 
 export interface Listener<E extends Emitter> {
