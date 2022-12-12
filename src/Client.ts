@@ -1,24 +1,25 @@
-import { Root } from './Root';
-import { NatsConnection, Subscription, JSONCodec } from 'nats';
+import type { Logs } from '@lad-tech/toolbelt';
+import * as opentelemetry from '@opentelemetry/api';
+import Ajv from 'ajv';
+import { createHash } from 'crypto';
+import * as http from 'http';
+import { JSONCodec, NatsConnection, Subscription } from 'nats';
+import { EventEmitter, Readable } from 'stream';
+import { setTimeout } from 'timers/promises';
 import {
   Baggage,
-  Message,
-  Emitter,
-  Listener,
-  HttpSettings,
-  ExternalBaggage,
   CacheSettings,
+  Emitter,
+  ExternalBaggage,
+  HttpSettings,
+  Listener,
+  Message,
   MethodOptions,
   MethodSettings,
 } from './interfaces';
-import * as opentelemetry from '@opentelemetry/api';
-import { EventEmitter, Readable } from 'stream';
-import * as http from 'http';
-import { createHash } from 'crypto';
-import { setTimeout } from 'timers/promises';
-import type { Logs } from '@lad-tech/toolbelt';
-import Ajv from 'ajv';
+import { Root } from './Root';
 
+type RequestData = Record<string, unknown> | Readable;
 export class Client<E extends Emitter = {}> extends Root {
   private subscriptions = new Map<keyof E, Subscription>();
   private REQUEST_HTTP_SETTINGS_TIMEOUT = 1000; // ms
@@ -28,7 +29,7 @@ export class Client<E extends Emitter = {}> extends Root {
     private serviceName: string,
     private baggage?: Baggage,
     private cache?: CacheSettings,
-    loggerOutputFormatter?: Logs.OutputFormatter
+    loggerOutputFormatter?: Logs.OutputFormatter,
   ) {
     super(natsConnection, loggerOutputFormatter);
     this.logger.setLocation(serviceName);
@@ -77,9 +78,9 @@ export class Client<E extends Emitter = {}> extends Root {
     }
   }
 
-  protected async request<R = any>(
+  protected async request<R = any, P extends RequestData = RequestData>(
     subject: string,
-    data: Record<string, unknown> | Readable,
+    data: P,
     { options, request, response }: MethodSettings,
   ): Promise<R> {
     const tracer = opentelemetry.trace.getTracer('');

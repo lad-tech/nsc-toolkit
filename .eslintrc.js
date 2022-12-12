@@ -12,6 +12,7 @@ module.exports = {
   },
 
   rules: {
+    '@typescript-eslint/ban-types':[1],
     '@typescript-eslint/no-this-alias': [1],
     'function-paren-newline': 0,
     '@typescript-eslint/semi': [0],
