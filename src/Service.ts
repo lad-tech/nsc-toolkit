@@ -14,8 +14,9 @@ import * as http from 'http';
 import * as os from 'os';
 import { setTimeout } from 'timers/promises';
 import { promisify } from 'util';
+import { StreamManager } from './StreamManager';
 
-export class Service<E extends Emitter = {}> extends Root {
+export class Service<E extends Emitter = Emitter> extends Root {
   public emitter = {} as E;
   private serviceName: string;
   private httpServer?: http.Server;
@@ -26,17 +27,32 @@ export class Service<E extends Emitter = {}> extends Root {
   private httpMethods = new Map<string, Method>();
   private rootSpans = new Map<string, Span>();
 
-  private serviceInStoppingProcess = false;
-
   constructor(private options: ServiceOptions<E>) {
     super(options.brokerConnection, options.loggerOutputFormatter);
 
     this.serviceName = options.name;
     this.logger.setLocation(this.serviceName);
-    if (options.events.length) {
-      this.emitter = options.events.reduce((result, action) => {
-        result[action] = ((params: unknown) => {
-          this.brocker.publish(`${options.name}.${String(action)}`, this.buildMessage(params));
+    if (options.events) {
+      const events = Object.keys(options.events.list) as [keyof E];
+      this.emitter = events.reduce((result, eventName) => {
+        result[eventName] = ((params: unknown) => {
+          const subject: string[] = [options.name];
+
+          const eventOptions = options.events?.list[eventName];
+
+          if (eventOptions?.options?.stream) {
+            const prefix = options.events?.streamOptions.prefix;
+
+            if (!prefix) {
+              throw new Error(`Stream prefix not set for event ${String(eventName)} marked as stream`);
+            }
+
+            subject.push(prefix);
+          }
+
+          subject.push(String(eventName));
+
+          this.brocker.publish(subject.join('.'), this.buildMessage(params));
         }) as E[keyof E];
         return result;
       }, this.emitter);
@@ -345,8 +361,18 @@ export class Service<E extends Emitter = {}> extends Root {
         await this.buildHTTPHandlers();
       }
 
-      this.upProbeRoutes();
+      // this.upProbeRoutes();
       this.registerGracefulShutdown();
+
+      if (this.options.events?.streamOptions) {
+        const streamManager = new StreamManager({
+          broker: this.brocker,
+          options: this.options.events.streamOptions,
+          serviceName: this.serviceName,
+          outputFormatter: this.options.loggerOutputFormatter,
+        });
+        await streamManager.createStreams();
+      }
 
       this.logger.info('Service successfully started!');
     } catch (error) {

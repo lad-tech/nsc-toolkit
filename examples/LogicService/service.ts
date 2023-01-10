@@ -10,6 +10,5 @@ import { WeirdSum } from './methods/WeirdSum';
     name,
     brokerConnection,
     methods: [WeirdSum],
-    events: [],
   }).start();
 })();

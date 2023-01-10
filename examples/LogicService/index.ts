@@ -6,8 +6,8 @@ import { name, methods } from './service.json';
 export * from './interfaces';
 
 export default class ServiceMathClient extends Client {
-  constructor(nats: NatsConnection, baggage?: Baggage, cacheSettings?: CacheSettings) {
-    super(nats, name, baggage, cacheSettings);
+  constructor(broker: NatsConnection, baggage?: Baggage, cache?: CacheSettings) {
+    super({ broker, serviceName: name, baggage });
   }
 
   public async weirdSum(payload: WeirdSumRequest) {

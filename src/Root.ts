@@ -4,8 +4,9 @@ import { NatsConnection } from 'nats';
 import { Baggage } from './interfaces';
 
 export class Root {
-  protected SERVICE_SUBJECT_FOR_GET_HTTP_SETTINGS = 'get_http_settings';
-  protected CACHE_SERVICE_KEY = 'CACHE';
+  protected readonly SERVICE_SUBJECT_FOR_GET_HTTP_SETTINGS = 'get_http_settings';
+  protected readonly CACHE_SERVICE_KEY = 'CACHE';
+  protected readonly SUBJECT_DELIMITER = '.';
   protected logger: Logs.Logger;
 
   constructor(protected brocker: NatsConnection, outputFormatter?: Logs.OutputFormatter) {

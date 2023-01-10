@@ -1,5 +1,6 @@
 import { connect } from 'nats';
 import LogicService, { WeirdSumRequest } from '../LogicService';
+import MathService from '../MathService';
 import { Service } from '../../src/Service';
 import { SimpleCache } from '../SimpleCache';
 import { Logs } from '@lad-tech/toolbelt';
@@ -12,10 +13,20 @@ declare module 'fastify' {
   }
 }
 
+const SERVICE_NAME = 'HttpGate';
 const HTTP_SERVICE_PORT = 8000;
 const logger = new Logs.Logger({ location: 'HttpGate' });
 
 const upHttpGate = async (service: Service) => {
+  const mathService = service.buildService(MathService);
+
+  const mathEmmiter = mathService.getListener(SERVICE_NAME, { deliver: 'all' });
+
+  mathEmmiter.on('Elapsed', message => {
+    logger.info('Get new event "Elapsed": ', message.data);
+    message.ack();
+  });
+
   const fastify = Fastify();
 
   fastify.decorateRequest('baggage', null);
@@ -43,10 +54,9 @@ const start = async () => {
     const brokerConnection = await connect({ servers: ['localhost:4222'] });
     const service = new Service({
       brokerConnection,
-      name: 'HttpGate',
+      name: SERVICE_NAME,
       methods: [],
-      events: [],
-      cache: { service: new SimpleCache(), timeout: 100 },
+      cache: { service: new SimpleCache(), timeout: 0 },
     });
 
     await service.start();

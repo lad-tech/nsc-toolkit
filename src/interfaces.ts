@@ -70,11 +70,72 @@ export interface GracefulShutdownAdditionalService {
   close: () => Promise<any>;
 }
 
+export interface ClientParam<E extends Emitter = Emitter> {
+  broker: NatsConnection;
+  serviceName: string;
+  baggage?: Baggage;
+  cache?: CacheSettings;
+  loggerOutputFormatter?: Logs.OutputFormatter;
+  events?: Events<E>;
+}
+
+export interface GetListenerOptions {
+  queue?: string;
+  deliver?: 'all' | 'new';
+  maxPending?: number;
+}
+
+export interface StreamManagerParam {
+  serviceName: string;
+  options: StreamOptions;
+  broker: NatsConnection;
+  outputFormatter?: Logs.OutputFormatter;
+}
+
+export interface EmitterEvent<D extends Record<string, any>> {
+  data: D;
+}
+
+export interface EmitterStreamEvent<D extends Record<string, any>> extends EmitterEvent<D> {
+  ack: () => void;
+  nak: (millis: number) => void;
+}
+
+export interface StreamAction {
+  action: string;
+  storage?: 'file' | 'memory' | string;
+  retentionPolicy?: 'limits' | 'interest' | 'workQueue' | string;
+  discardPolicy?: 'old' | 'new' | string;
+  messageTTL?: number; // in seconds
+  duplicateTrackingTime?: number; // in seconds
+  replication?: number;
+  rollUps?: boolean;
+}
+
+export interface StreamOptions {
+  prefix: string;
+  actions: StreamAction[];
+}
+
+export interface Event {
+  action: string;
+  options?: {
+    stream?: boolean;
+  };
+  description: string;
+  event: Record<string, unknown>;
+}
+
+export interface Events<E extends Emitter> {
+  list: Record<keyof E, Event>;
+  streamOptions: StreamOptions;
+}
+
 export interface ServiceOptions<E extends Emitter> {
   name: string;
   brokerConnection: NatsConnection;
   methods: Method[];
-  events: keyof E extends [] ? [] : [keyof E];
+  events?: Events<E>;
   cache?: CacheSettings;
   loggerOutputFormatter?: Logs.OutputFormatter;
   gracefulShutdown?: {
@@ -82,6 +143,9 @@ export interface ServiceOptions<E extends Emitter> {
     timeout?: number;
   };
 }
+
+export type EventStreamHandler<P extends Record<string, any>> = (params: EmitterStreamEvent<P>) => void;
+export type EventHandler<P extends Record<string, any>> = (params: EmitterEvent<P>) => void;
 
 export interface Listener<E extends Emitter> {
   on<A extends keyof E>(action: A, handler: E[A]): void;

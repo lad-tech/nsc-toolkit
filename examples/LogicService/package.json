@@ -1,16 +1,13 @@
 {
-  "name": "gate",
+  "name": "logicservice",
   "version": "1.0.0",
   "description": "",
-  "main": "dist/examples/HttpGate/index.js",
+  "main": "dist/examples/LogicService/service.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "rm -rf ./dist && npx tsc"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "fastify": "^4.3.0"
-  }
+  "license": "ISC"
 }
