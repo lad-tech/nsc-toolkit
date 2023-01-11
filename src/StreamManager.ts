@@ -16,13 +16,15 @@ import { Root } from './Root';
 export class StreamManager extends Root {
   private readonly STAR_WILDCARD = '*';
   private readonly GREATER_WILDCARD = '>';
+  private readonly TWO_WEEKS_IN_SECOND = 1209600;
+  private readonly ONE_DAY_IN_SECOND = 86400;
 
   private readonly defaultStreamOption: Omit<Required<StreamAction>, 'action'> = {
     storage: 'file',
     retentionPolicy: 'limits',
     discardPolicy: 'old',
-    messageTTL: 1209600, // 2 weeks in second
-    duplicateTrackingTime: 86400, // 1 day
+    messageTTL: this.TWO_WEEKS_IN_SECOND,
+    duplicateTrackingTime: this.ONE_DAY_IN_SECOND,
     replication: 1,
     rollUps: true,
   };

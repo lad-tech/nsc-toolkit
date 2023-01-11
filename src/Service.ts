@@ -361,7 +361,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
         await this.buildHTTPHandlers();
       }
 
-      // this.upProbeRoutes();
+      this.upProbeRoutes();
       this.registerGracefulShutdown();
 
       if (this.options.events?.streamOptions) {
