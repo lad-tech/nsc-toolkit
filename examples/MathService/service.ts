@@ -1,6 +1,6 @@
 import { Service } from '../../src/Service';
 import { EmitterMath } from './interfaces';
-import { name } from './service.json';
+import { name, events } from './service.json';
 import { connect } from 'nats';
 
 import { Sum } from './methods/Sum';
@@ -13,6 +13,6 @@ import { Fibonacci } from './methods/Fibonacci';
     name,
     brokerConnection,
     methods: [Sum, SumStream, Fibonacci],
-    events: ['elapsed'],
+    events
   }).start();
 })();

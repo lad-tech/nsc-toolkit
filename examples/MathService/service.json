@@ -10,7 +10,7 @@
         "type": "object",
         "properties": {
           "a": { "type": "number" },
-          "b": {"type": "number" }
+          "b": { "type": "number" }
         },
         "required": ["a", "b"]
       },
@@ -59,6 +59,39 @@
         },
         "required": ["result"]
       }
+    }
+  },
+  "events": {
+    "list": {
+      "Elapsed": {
+        "action": "elapsed",
+        "options": {
+          "stream": true
+        },
+        "description": "Elapsed time to calculate stream sum",
+        "event": {
+          "type": "object",
+          "properties": {
+            "elapsed": { "type": "number" }
+          },
+          "required": ["elapsed"]
+        }
+      }
+    },
+    "streamOptions": {
+      "prefix": "stream",
+      "actions": [
+        {
+          "action": "*",
+          "storage": "file",
+          "retentionPolicy": "limits",
+          "discardPolicy": "old",
+          "messageTTL": 1209600,
+          "duplicateTrackingTime": 86400,
+          "replication": 1,
+          "rollUps": true
+        }
+      ]
     }
   }
 }
