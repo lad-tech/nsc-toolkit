@@ -5,8 +5,6 @@ import {
   StorageType,
   DiscardPolicy,
   Nanos,
-  Subscription,
-  AckPolicy,
   JetStreamSubscription,
   consumerOpts,
   createInbox,
