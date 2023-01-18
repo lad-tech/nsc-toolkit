@@ -1,3 +1,5 @@
+[![Coverage Status](https://coveralls.io/repos/github/lad-tech/nsc-toolkit/badge.svg?branch=main)](https://coveralls.io/github/lad-tech/nsc-toolkit?branch=main)
+
 nsc-toolkit (NATS service creator toolkit) - это набор инструментов для создания сервис-ориентированная архитектуры вокруг брокера сообщений [NATS](https://nats.io/). Основная идеология тулкита - это простой инструмент с минимальным количеством зависимостей позволяющий создавать сервисы с помощью интсрументов кодогенерации на основе простого описания в JSON. 
 
 ## Возможности
