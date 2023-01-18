@@ -8,7 +8,8 @@ import { Tracer, Context, Span, trace } from '@opentelemetry/api';
 import { InstanceContainer, ServiceContainer } from './injector';
 import { JaegerExporter } from '@opentelemetry/exporter-jaeger';
 import { IncomingHttpHeaders, ServerResponse } from 'http';
-import { Readable, Transform, pipeline } from 'stream';
+import { Readable, Transform } from 'stream';
+import { pipeline } from 'stream/promises';
 import { Logs } from '@lad-tech/toolbelt';
 import * as http from 'http';
 import * as os from 'os';
@@ -244,7 +245,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
     response.writeHead(200, {
       'Content-Type': 'application/octet-stream',
     });
-    pipeline(data.payload, this.getStringifyTransform(), response, () => {});
+    return pipeline(data.payload, this.getStringifyTransform(), response);
   }
 
   /**
@@ -267,7 +268,6 @@ export class Service<E extends Emitter = Emitter> extends Root {
           throw new Error('Wrong url or service name or action');
         }
         const baggage = this.getBaggageFromHTTPHeader(request.headers as IncomingHttpHeaders & ExternalBaggage);
-
         if (Method.settings.options?.useStream?.request) {
           const result = await this.handled(request, Method, baggage);
           if (Method.settings.options.useStream.response && result.payload instanceof Readable) {
@@ -284,7 +284,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
         const requestData = Buffer.concat(requestDataRaw).toString();
         const result = await this.handled(JSON.parse(requestData), Method, baggage);
         if (Method.settings.options?.useStream?.response && result.payload instanceof Readable) {
-          this.makeHttpStreamResponse(response, result as Message<Readable>);
+          await this.makeHttpStreamResponse(response, result as Message<Readable>);
           return;
         }
         this.makeHttpSingleResponse(response, result);
@@ -419,6 +419,10 @@ export class Service<E extends Emitter = Emitter> extends Root {
     process.exit(0);
   }
 
+  public async stop() {
+    await this.cleanupAndExit();
+  }
+
   /**
    * Handler for OS Signal
    */
@@ -473,7 +477,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
    * Build message for broker
    */
   private buildMessage(message: unknown) {
-    return Buffer.from(JSON.stringify(message));
+    return JSONCodec().encode(message); //Buffer.from(JSON.stringify(message));
   }
 
   private async upHTTPServer() {
@@ -492,7 +496,6 @@ export class Service<E extends Emitter = Emitter> extends Root {
           reject(new Error('Listening on a unix socket is not supported'));
           return;
         }
-
         resolve(address.port);
       });
     });

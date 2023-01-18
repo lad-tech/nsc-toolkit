@@ -171,7 +171,6 @@ export class Client<E extends Emitter = Emitter> extends Root {
           this.logger.warn('get cache: ', error);
         }
       }
-
       const result = options?.useStream
         ? await this.makeHttpRequest(subject, message, options, timeout)
         : await this.makeBrokerRequest(subject, message, timeout);
@@ -183,7 +182,6 @@ export class Client<E extends Emitter = Emitter> extends Root {
       if (options?.runTimeValidation?.response && response) {
         this.validate(result.payload, response);
       }
-
       if (options?.cache && !this.isStream(result.payload) && this.cache) {
         this.cache.service.set(key, JSON.stringify(result.payload), options.cache);
       }

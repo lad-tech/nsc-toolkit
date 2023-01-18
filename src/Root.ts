@@ -1,7 +1,7 @@
 import { Logs } from '@lad-tech/toolbelt';
 import * as opentelemetry from '@opentelemetry/api';
-import { NatsConnection } from 'nats';
-import { Baggage } from './interfaces';
+import type { NatsConnection } from 'nats';
+import type { Baggage } from './interfaces';
 
 export class Root {
   protected readonly SERVICE_SUBJECT_FOR_GET_HTTP_SETTINGS = 'get_http_settings';
