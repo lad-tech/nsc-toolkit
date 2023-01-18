@@ -5,8 +5,6 @@ import {
   StorageType,
   DiscardPolicy,
   Nanos,
-  Subscription,
-  AckPolicy,
   JetStreamSubscription,
   consumerOpts,
   createInbox,
@@ -78,10 +76,6 @@ export class StreamManager extends Root {
     eventName: string,
     setting?: GetListenerOptions,
   ): Promise<JetStreamSubscription> {
-    if (!this.jsm) {
-      this.jsm = await this.param.broker.jetstreamManager();
-    }
-
     const consumerName = this.capitalizeFirstLetter(serviceNameFrom) + this.capitalizeFirstLetter(eventName);
 
     const prefix = this.param.options.prefix;

@@ -28,6 +28,8 @@ export class SumStream extends BaseMethod<EmitterMath> {
 
     performance.measure('Duration', 'durationSum');
 
+    this.emitter.Notify({ method: 'SumStream' });
+
     return { result: this.result };
   }
 }

@@ -10,7 +10,7 @@ export interface MethodOptions {
     response?: boolean;
   };
   cache?: number; // in minuts
-  timeout?: number; // in seconds
+  timeout?: number; // in milliseconds
   runTimeValidation?: {
     request?: boolean;
     response?: boolean;
