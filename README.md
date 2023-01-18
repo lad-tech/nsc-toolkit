@@ -1,4 +1,6 @@
 [![Coverage Status](https://coveralls.io/repos/github/lad-tech/nsc-toolkit/badge.svg?branch=main)](https://coveralls.io/github/lad-tech/nsc-toolkit?branch=main)
+[![Known Vulnerabilities](https://snyk.io/test/github/lad-tech/nsc-toolkit/badge.svg)](https://snyk.io/test/github/lad-tech/nsc-toolkit)
+[![npm version](https://badge.fury.io/js/@lad-tech%2Fnsc-toolkit.svg)](https://badge.fury.io/js/@lad-tech%2Fnsc-toolkit)
 
 nsc-toolkit (NATS service creator toolkit) - это набор инструментов для создания сервис-ориентированная архитектуры вокруг брокера сообщений [NATS](https://nats.io/). Основная идеология тулкита - это простой инструмент с минимальным количеством зависимостей позволяющий создавать сервисы с помощью интсрументов кодогенерации на основе простого описания в JSON. 
 
