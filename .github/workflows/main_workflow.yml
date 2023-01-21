@@ -20,10 +20,10 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - name: Install deps
         run: npm i
-      - name: Build
-        run: npm run build
       - name: Test
         run: npm run test
+      - name: Build
+        run: npm run build
       - name: Push to NPM
         if: ${{github.ref == 'refs/heads/main'}}
         run: npx semantic-release
