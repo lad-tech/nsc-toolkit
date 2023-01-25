@@ -59,7 +59,7 @@ export interface Message<M = any> {
   };
 }
 
-export type Emitter = Record<string, (params: unknown) => void>;
+export type Emitter = Record<string, (params: any) => void>;
 
 export interface CacheSettings {
   service: CacheService;
