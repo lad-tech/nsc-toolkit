@@ -1,11 +1,23 @@
 // SERVICE
 
-interface ElapsedEvent {
+import { EventHandler, EventStreamHandler } from '../../src';
+
+export interface ElapsedEvent {
   elapsed: number;
 }
 
+export interface NotifyEvent {
+  method: string;
+}
+
 export type EmitterMath = {
-  elapsed: (params: ElapsedEvent) => void;
+  Elapsed: (params: ElapsedEvent) => void;
+  Notify: (params: NotifyEvent) => void;
+};
+
+export type EmitterMathExternal = {
+  Elapsed: EventStreamHandler<ElapsedEvent>;
+  Notify: EventHandler<NotifyEvent>;
 };
 
 export type SumRequest = {

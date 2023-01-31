@@ -1,21 +1,23 @@
-import { Logs } from '@lad-tech/toolbelt';
-import { Context, Span, trace, Tracer } from '@opentelemetry/api';
-import { JaegerExporter } from '@opentelemetry/exporter-jaeger';
-import { Resource } from '@opentelemetry/resources';
-import { BasicTracerProvider, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base';
-import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
-import * as http from 'http';
-import { IncomingHttpHeaders, ServerResponse } from 'http';
+import { Root } from './Root';
 import { JSONCodec, Subscription } from 'nats';
+import { Message, Emitter, Method, ServiceOptions, Baggage, ExternalBaggage, ClientService } from './interfaces';
+import { BasicTracerProvider, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base';
+import { Resource } from '@opentelemetry/resources';
+import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
+import { Tracer, Context, Span, trace } from '@opentelemetry/api';
+import { InstanceContainer, ServiceContainer } from './injector';
+import { JaegerExporter } from '@opentelemetry/exporter-jaeger';
+import { IncomingHttpHeaders, ServerResponse } from 'http';
+import { Readable, Transform } from 'stream';
+import { pipeline } from 'stream/promises';
+import { Logs } from '@lad-tech/toolbelt';
+import * as http from 'http';
 import * as os from 'os';
-import { pipeline, Readable, Transform } from 'stream';
 import { setTimeout } from 'timers/promises';
 import { promisify } from 'util';
-import { InstanceContainer, ServiceContainer } from './injector';
-import { Baggage, ClientService, Emitter, ExternalBaggage, Message, Method, ServiceOptions } from './interfaces';
-import { Root } from './Root';
+import { StreamManager } from './StreamManager';
 
-export class Service<E extends Emitter = {}> extends Root {
+export class Service<E extends Emitter = Emitter> extends Root {
   public emitter = {} as E;
   private serviceName: string;
   private httpServer?: http.Server;
@@ -26,17 +28,32 @@ export class Service<E extends Emitter = {}> extends Root {
   private httpMethods = new Map<string, Method>();
   private rootSpans = new Map<string, Span>();
 
-  private serviceInStoppingProcess = false;
-
   constructor(private options: ServiceOptions<E>) {
     super(options.brokerConnection, options.loggerOutputFormatter);
 
     this.serviceName = options.name;
     this.logger.setLocation(this.serviceName);
-    if (options.events.length) {
-      this.emitter = options.events.reduce((result, action) => {
-        result[action] = ((params: unknown) => {
-          this.brocker.publish(`${options.name}.${String(action)}`, this.buildMessage(params));
+    if (options.events) {
+      const events = Object.keys(options.events.list) as [keyof E];
+      this.emitter = events.reduce((result, eventName) => {
+        result[eventName] = ((params: unknown) => {
+          const subject: string[] = [options.name];
+
+          const eventOptions = options.events?.list[eventName];
+
+          if (eventOptions?.options?.stream) {
+            const prefix = options.events?.streamOptions.prefix;
+
+            if (!prefix) {
+              throw new Error(`Stream prefix not set for event ${String(eventName)} marked as stream`);
+            }
+
+            subject.push(prefix);
+          }
+
+          subject.push(String(eventName));
+
+          this.brocker.publish(subject.join('.'), this.buildMessage(params));
         }) as E[keyof E];
         return result;
       }, this.emitter);
@@ -228,7 +245,7 @@ export class Service<E extends Emitter = {}> extends Root {
     response.writeHead(200, {
       'Content-Type': 'application/octet-stream',
     });
-    pipeline(data.payload, this.getStringifyTransform(), response, () => {});
+    return pipeline(data.payload, this.getStringifyTransform(), response);
   }
 
   /**
@@ -251,7 +268,6 @@ export class Service<E extends Emitter = {}> extends Root {
           throw new Error('Wrong url or service name or action');
         }
         const baggage = this.getBaggageFromHTTPHeader(request.headers as IncomingHttpHeaders & ExternalBaggage);
-
         if (Method.settings.options?.useStream?.request) {
           const result = await this.handled(request, Method, baggage);
           if (Method.settings.options.useStream.response && result.payload instanceof Readable) {
@@ -268,7 +284,7 @@ export class Service<E extends Emitter = {}> extends Root {
         const requestData = Buffer.concat(requestDataRaw).toString();
         const result = await this.handled(JSON.parse(requestData), Method, baggage);
         if (Method.settings.options?.useStream?.response && result.payload instanceof Readable) {
-          this.makeHttpStreamResponse(response, result as Message<Readable>);
+          await this.makeHttpStreamResponse(response, result as Message<Readable>);
           return;
         }
         this.makeHttpSingleResponse(response, result);
@@ -348,6 +364,16 @@ export class Service<E extends Emitter = {}> extends Root {
       this.upProbeRoutes();
       this.registerGracefulShutdown();
 
+      if (this.options.events?.streamOptions) {
+        const streamManager = new StreamManager({
+          broker: this.brocker,
+          options: this.options.events.streamOptions,
+          serviceName: this.serviceName,
+          outputFormatter: this.options.loggerOutputFormatter,
+        });
+        await streamManager.createStreams();
+      }
+
       this.logger.info('Service successfully started!');
     } catch (error) {
       if (error instanceof Error) {
@@ -393,6 +419,10 @@ export class Service<E extends Emitter = {}> extends Root {
     process.exit(0);
   }
 
+  public async stop() {
+    await this.cleanupAndExit();
+  }
+
   /**
    * Handler for OS Signal
    */
@@ -428,7 +458,7 @@ export class Service<E extends Emitter = {}> extends Root {
    * Up Probe Route for container orchestration service
    */
   private upProbeRoutes() {
-    if (this.httpProbServer || process.env.ENVIRONMENT === 'local') {
+    if (this.httpProbServer) {
       return;
     }
     this.httpProbServer = http.createServer();
@@ -447,7 +477,7 @@ export class Service<E extends Emitter = {}> extends Root {
    * Build message for broker
    */
   private buildMessage(message: unknown) {
-    return Buffer.from(JSON.stringify(message));
+    return JSONCodec().encode(message); //Buffer.from(JSON.stringify(message));
   }
 
   private async upHTTPServer() {
@@ -466,7 +496,6 @@ export class Service<E extends Emitter = {}> extends Root {
           reject(new Error('Listening on a unix socket is not supported'));
           return;
         }
-
         resolve(address.port);
       });
     });

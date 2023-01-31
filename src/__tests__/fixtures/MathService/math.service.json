@@ -5,7 +5,14 @@
     "Sum": {
       "action": "sum",
       "description": "Addition of two numbers",
-      "options": {},
+      "options": {
+        "runTimeValidation": {
+          "request": true,
+          "response": true
+        },
+        "cache": 10,
+        "timeout": 1
+      },
       "request": {
         "type": "object",
         "properties": {
@@ -58,6 +65,16 @@
           "result": { "type": "number" }
         },
         "required": ["result"]
+      }
+    },
+    "Multiply": {
+      "action": "multiply",
+      "description": "Multiplies each number in the stream",
+      "options": {
+        "useStream": {
+          "request": true,
+          "response": true
+        }
       }
     }
   },

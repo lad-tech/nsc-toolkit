@@ -1,12 +1,16 @@
-import { Client } from '../../src/Client';
-import { name, methods, events } from './service.json';
+import { NatsConnection } from 'nats';
+import { Readable } from 'stream';
+import { Client, CacheSettings, Baggage } from '../../..';
+import { name, methods, events } from './math.service.json';
+import {
+  EmitterMathExternal,
+  SumRequest,
+  SumResponse,
+  SumStreamResponse,
+  FibonacciRequest,
+} from '../../../../examples/MathService/interfaces';
 
-import type { NatsConnection } from 'nats';
-import type { SumRequest, SumResponse, EmitterMathExternal, SumStreamResponse, FibonacciRequest } from './interfaces';
-import type { Baggage, CacheSettings } from '../../src/interfaces';
-import type { Readable } from 'stream';
-
-export default class ServiceMathClient extends Client<EmitterMathExternal> {
+export class MathClient extends Client<EmitterMathExternal> {
   constructor(broker: NatsConnection, baggage?: Baggage, cache?: CacheSettings) {
     super({ broker, serviceName: name, baggage, cache, events });
   }
@@ -18,5 +22,8 @@ export default class ServiceMathClient extends Client<EmitterMathExternal> {
   }
   public async fibonacci(payload: FibonacciRequest) {
     return this.request<Readable>(`${name}.${methods.Fibonacci.action}`, payload, methods.Fibonacci);
+  }
+  public async multiply(payload: Readable) {
+    return this.request<Readable>(`${name}.${methods.Multiply.action}`, payload, methods.Multiply);
   }
 }

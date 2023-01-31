@@ -1,14 +1,13 @@
-import type { Logs } from '@lad-tech/toolbelt';
 import * as opentelemetry from '@opentelemetry/api';
 import Ajv from 'ajv';
 import { createHash } from 'crypto';
 import * as http from 'http';
-import { JSONCodec, NatsConnection, Subscription } from 'nats';
+import { JetStreamSubscription, JsMsg, Msg, JSONCodec, Subscription } from 'nats';
 import { EventEmitter, Readable } from 'stream';
 import { setTimeout } from 'timers/promises';
+import { CacheSettings } from '.';
 import {
   Baggage,
-  CacheSettings,
   Emitter,
   ExternalBaggage,
   HttpSettings,
@@ -16,41 +15,101 @@ import {
   Message,
   MethodOptions,
   MethodSettings,
+  ClientParam,
+  Events,
+  GetListenerOptions,
+  EmitterStreamEvent,
 } from './interfaces';
 import { Root } from './Root';
+import { StreamManager } from './StreamManager';
 
 type RequestData = Record<string, unknown> | Readable;
-export class Client<E extends Emitter = {}> extends Root {
-  private subscriptions = new Map<keyof E, Subscription>();
+export class Client<E extends Emitter = Emitter> extends Root {
+  private serviceName: string;
+  private baggage?: Baggage;
+  private cache?: CacheSettings;
+  private events?: Events<E>;
+
+  private subscriptions = new Map<keyof E, Subscription | JetStreamSubscription>();
   private REQUEST_HTTP_SETTINGS_TIMEOUT = 1000; // ms
 
-  constructor(
-    natsConnection: NatsConnection,
-    private serviceName: string,
-    private baggage?: Baggage,
-    private cache?: CacheSettings,
-    loggerOutputFormatter?: Logs.OutputFormatter,
-  ) {
-    super(natsConnection, loggerOutputFormatter);
+  constructor({ broker, events, loggerOutputFormatter, serviceName, baggage, cache }: ClientParam<E>) {
+    super(broker, loggerOutputFormatter);
     this.logger.setLocation(serviceName);
+
+    this.serviceName = serviceName;
+    this.baggage = baggage;
+    this.cache = cache;
+    this.events = events;
+  }
+
+  private async startWatch(
+    subscription: Subscription | JetStreamSubscription,
+    listener: EventEmitter,
+    eventName: string,
+  ) {
+    for await (const event of subscription) {
+      const data = JSONCodec<unknown>().decode(event.data);
+      const message: Partial<EmitterStreamEvent<any>> = { data };
+
+      if (this.isJsMessage(event)) {
+        message.ack = event.ack.bind(event);
+        message.nak = event.nak.bind(event);
+      }
+
+      listener.emit(`${eventName as string}`, message);
+    }
   }
 
   /**
    * Make listener for service events. Auto subscribe and unsubscribe to subject
    */
-  public getListener<A extends keyof E>(eventNames: Array<A>, queue?: string): Listener<E> {
+  public getListener<A extends keyof E>(serviceNameFrom: string, options?: GetListenerOptions): Listener<E> {
+    if (!this.events) {
+      throw new Error('The service does not generate events');
+    }
+
     const listener = new EventEmitter();
-    eventNames.forEach(async eventName => {
-      const subscription = this.brocker.subscribe(`${this.serviceName}.${eventName as string}`, { queue });
-      this.subscriptions.set(eventName, subscription);
-      for await (const event of subscription) {
-        const data = JSONCodec<unknown>().decode(event.data);
-        listener.emit(`${eventName as string}`, data);
-      }
-    });
+
     return new Proxy(listener, {
       get: (target, prop, receiver) => {
         const method = Reflect.get(target, prop, receiver);
+
+        if (prop === 'on') {
+          return async (eventName: A, handler: (param: unknown) => void) => {
+            try {
+              this.logger.info('Subscribe', eventName);
+
+              const action = this.events?.list[eventName];
+
+              if (!action) {
+                throw new Error(`The service does not generate ${String(eventName)} event`);
+              }
+
+              const isStream = action.options?.stream;
+
+              let subscription: Subscription | JetStreamSubscription;
+
+              if (isStream) {
+                subscription = await new StreamManager({
+                  broker: this.brocker,
+                  options: this.events!.streamOptions,
+                  serviceName: this.serviceName,
+                }).createConsumer(serviceNameFrom, String(eventName));
+              } else {
+                const queue = options?.queue ? { queue: options.queue } : {};
+                subscription = this.brocker.subscribe(`${this.serviceName}.${eventName as string}`, queue);
+              }
+
+              this.subscriptions.set(eventName, subscription);
+              this.startWatch(subscription, listener, String(eventName));
+              return method.call(target, eventName, handler);
+            } catch (error) {
+              this.logger.error(`Failed subscribe to subject`, error);
+            }
+          };
+        }
+
         if (prop === 'off') {
           return (eventName: A, listener: (params: unknown) => void) => {
             this.logger.info('Unsubscribe', eventName);
@@ -112,7 +171,6 @@ export class Client<E extends Emitter = {}> extends Root {
           this.logger.warn('get cache: ', error);
         }
       }
-
       const result = options?.useStream
         ? await this.makeHttpRequest(subject, message, options, timeout)
         : await this.makeBrokerRequest(subject, message, timeout);
@@ -124,7 +182,6 @@ export class Client<E extends Emitter = {}> extends Root {
       if (options?.runTimeValidation?.response && response) {
         this.validate(result.payload, response);
       }
-
       if (options?.cache && !this.isStream(result.payload) && this.cache) {
         this.cache.service.set(key, JSON.stringify(result.payload), options.cache);
       }
@@ -236,5 +293,9 @@ export class Client<E extends Emitter = {}> extends Root {
       'nsc-span-id': baggage.spanId,
       'nsc-trace-flags': baggage.traceFlags,
     };
+  }
+
+  private isJsMessage(message: JsMsg | Msg): message is JsMsg {
+    return !!(message as JsMsg).sid;
   }
 }
