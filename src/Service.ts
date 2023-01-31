@@ -458,7 +458,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
    * Up Probe Route for container orchestration service
    */
   private upProbeRoutes() {
-    if (this.httpProbServer) {
+    if (this.httpProbServer || process.env.ENVIRONMENT === 'local') {
       return;
     }
     this.httpProbServer = http.createServer();
