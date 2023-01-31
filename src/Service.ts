@@ -1,19 +1,19 @@
-import { Root } from './Root';
-import { JSONCodec, Subscription } from 'nats';
-import { Message, Emitter, Method, ServiceOptions, Baggage, ExternalBaggage, ClientService } from './interfaces';
-import { BasicTracerProvider, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base';
-import { Resource } from '@opentelemetry/resources';
-import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
-import { Tracer, Context, Span, trace } from '@opentelemetry/api';
-import { InstanceContainer, ServiceContainer } from './injector';
-import { JaegerExporter } from '@opentelemetry/exporter-jaeger';
-import { IncomingHttpHeaders, ServerResponse } from 'http';
-import { Readable, Transform, pipeline } from 'stream';
 import { Logs } from '@lad-tech/toolbelt';
+import { Context, Span, trace, Tracer } from '@opentelemetry/api';
+import { JaegerExporter } from '@opentelemetry/exporter-jaeger';
+import { Resource } from '@opentelemetry/resources';
+import { BasicTracerProvider, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base';
+import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
 import * as http from 'http';
+import { IncomingHttpHeaders, ServerResponse } from 'http';
+import { JSONCodec, Subscription } from 'nats';
 import * as os from 'os';
+import { pipeline, Readable, Transform } from 'stream';
 import { setTimeout } from 'timers/promises';
 import { promisify } from 'util';
+import { InstanceContainer, ServiceContainer } from './injector';
+import { Baggage, ClientService, Emitter, ExternalBaggage, Message, Method, ServiceOptions } from './interfaces';
+import { Root } from './Root';
 
 export class Service<E extends Emitter = {}> extends Root {
   public emitter = {} as E;
@@ -428,7 +428,7 @@ export class Service<E extends Emitter = {}> extends Root {
    * Up Probe Route for container orchestration service
    */
   private upProbeRoutes() {
-    if (this.httpProbServer) {
+    if (this.httpProbServer || process.env.ENVIRONMENT === 'local') {
       return;
     }
     this.httpProbServer = http.createServer();
