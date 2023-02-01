@@ -363,6 +363,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
 
       this.upProbeRoutes();
       this.registerGracefulShutdown();
+      this.watchBrokerEvents();
 
       if (this.options.events?.streamOptions) {
         const streamManager = new StreamManager({
@@ -471,6 +472,15 @@ export class Service<E extends Emitter = Emitter> extends Root {
     });
 
     this.httpProbServer.listen(8081);
+  }
+
+  /**
+   * Logs events from the broker
+   */
+  private async watchBrokerEvents() {
+    for await (const event of this.brocker.status()) {
+      this.logger.warn(`${event.type}: ${event.data}`);
+    }
   }
 
   /**
