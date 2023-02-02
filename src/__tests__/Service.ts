@@ -12,6 +12,9 @@ import { SumInstanceRelation } from './fixtures/MathService/methods/SumInstanceR
 jest.mock('./fixtures/MathService');
 
 describe('Testing Service class methods', () => {
+  const brokerEvents = new PassThrough();
+  brokerEvents.end();
+
   const jetstreamSubscribeMock = jest.fn();
   const jsmManagerMock = {
     streams: {
@@ -28,6 +31,7 @@ describe('Testing Service class methods', () => {
     jetstream: () => ({
       subscribe: jetstreamSubscribeMock,
     }),
+    status: () => brokerEvents,
   };
 
   const codec = JSONCodec();
@@ -330,6 +334,34 @@ describe('Testing Service class methods', () => {
       await setTimeout(1);
 
       expect(respond).toBeCalledWith(codec.encode({ payload: { result: 10 } }));
+    });
+
+    test('Prob server is working correctly', async () => {
+      const probServer = getHttpServerMock();
+
+      const httpRequest = new PassThrough();
+      httpRequest['method'] = 'GET';
+      httpRequest['url'] = '/healthcheck';
+
+      const end = jest.fn();
+
+      const response = {
+        writeHead: () => ({
+          end,
+        }),
+      };
+
+      createServerMock.mockReturnValueOnce(probServer);
+
+      await new Service({
+        name,
+        brokerConnection: broker as any,
+        methods: [],
+      }).start();
+
+      probServer.emit('request', httpRequest, response);
+      await setTimeout(500);
+      expect(end).toBeCalled();
     });
   });
 });
