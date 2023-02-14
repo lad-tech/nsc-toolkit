@@ -95,7 +95,7 @@ export class Client<E extends Emitter = Emitter> extends Root {
                   broker: this.brocker,
                   options: this.events!.streamOptions,
                   serviceName: this.serviceName,
-                }).createConsumer(serviceNameFrom, String(eventName));
+                }).createConsumer(serviceNameFrom, String(eventName), options);
               } else {
                 const queue = options?.queue ? { queue: options.queue } : {};
                 subscription = this.brocker.subscribe(`${this.serviceName}.${eventName as string}`, queue);
