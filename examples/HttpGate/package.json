@@ -2,7 +2,7 @@
   "name": "gate",
   "version": "1.0.0",
   "description": "",
-  "main": "dist/examples/HttpGate/index.js",
+  "main": "dist/examples/HttpGate/start.micro.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "rm -rf ./dist && npx tsc"

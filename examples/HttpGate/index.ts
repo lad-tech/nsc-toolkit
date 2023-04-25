@@ -1,4 +1,4 @@
-import { connect } from 'nats';
+import { connect, NatsConnection } from 'nats';
 import LogicService, { WeirdSumRequest } from '../LogicService';
 import MathService from '../MathService';
 import { Service } from '../../src/Service';
@@ -49,9 +49,8 @@ const upHttpGate = async (service: Service) => {
   await fastify.listen({ port: HTTP_SERVICE_PORT });
 };
 
-const start = async () => {
+export const service = async (brokerConnection?: NatsConnection) => {
   try {
-    const brokerConnection = await connect({ servers: ['localhost:4222'] });
     const service = new Service({
       brokerConnection,
       name: SERVICE_NAME,
@@ -62,10 +61,9 @@ const start = async () => {
     await service.start();
     await upHttpGate(service);
     logger.info('Http server start on port:', HTTP_SERVICE_PORT);
+    return service;
   } catch (error) {
     logger.error(error);
     process.exit(1);
   }
 };
-
-start();

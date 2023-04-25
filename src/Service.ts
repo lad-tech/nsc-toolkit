@@ -53,7 +53,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
 
           subject.push(String(eventName));
 
-          this.brocker.publish(subject.join('.'), this.buildMessage(params));
+          this.broker.publish(subject.join('.'), this.buildMessage(params));
         }) as E[keyof E];
         return result;
       }, this.emitter);
@@ -108,7 +108,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
     const dependences: Record<string, unknown> = {};
     if (services?.size) {
       services.forEach((Dependence, key) => {
-        dependences[key] = new Dependence(this.brocker, baggage, this.options.cache);
+        dependences[key] = new Dependence(this.broker, baggage, this.options.cache);
       });
     }
     const perform = this.perform;
@@ -192,7 +192,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
   }
 
   public buildService<C extends ClientService>(Client: C, baggage?: Baggage) {
-    return new Client(this.brocker, baggage, this.options.cache, this.options.loggerOutputFormatter) as InstanceType<C>;
+    return new Client(this.broker, baggage, this.options.cache, this.options.loggerOutputFormatter) as InstanceType<C>;
   }
 
   /**
@@ -200,7 +200,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
    */
   private async runServiceMethodForHttp() {
     const subject = `${this.serviceName}.${this.SERVICE_SUBJECT_FOR_GET_HTTP_SETTINGS}`;
-    const subscription = this.brocker.subscribe(subject, { queue: this.serviceName });
+    const subscription = this.broker.subscribe(subject, { queue: this.serviceName });
     this.subscriptions.push(subscription);
     for await (const message of subscription) {
       message.respond(this.buildMessage(this.getHttpSettings()));
@@ -344,7 +344,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
 
         const subject = `${this.serviceName}.${Method.settings.action}`;
 
-        const subscription = this.brocker.subscribe(subject, { queue: this.serviceName });
+        const subscription = this.broker.subscribe(subject, { queue: this.serviceName });
         this.subscriptions.push(subscription);
         for await (const message of subscription) {
           const { payload, baggage } = JSONCodec<Message<unknown>>().decode(message.data);
@@ -361,13 +361,13 @@ export class Service<E extends Emitter = Emitter> extends Root {
         await this.buildHTTPHandlers();
       }
 
+      this.watchBrokerEvents();
       this.upProbeRoutes();
       this.registerGracefulShutdown();
-      this.watchBrokerEvents();
 
       if (this.options.events?.streamOptions) {
         const streamManager = new StreamManager({
-          broker: this.brocker,
+          broker: this.broker,
           options: this.options.events.streamOptions,
           serviceName: this.serviceName,
           outputFormatter: this.options.loggerOutputFormatter,
@@ -393,7 +393,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
     try {
       const timeout = this.options.gracefulShutdown?.timeout || 1000;
       this.logger.info('Closing Broker connection');
-      await Promise.race([this.options.brokerConnection.drain(), setTimeout(timeout)]);
+      await Promise.race([this.broker.drain(), setTimeout(timeout)]);
 
       if (this.httpServer) {
         this.logger.info('Closing HTTP server');
@@ -459,26 +459,33 @@ export class Service<E extends Emitter = Emitter> extends Root {
    * Up Probe Route for container orchestration service
    */
   private upProbeRoutes() {
-    if (this.httpProbServer || process.env.ENVIRONMENT === 'local') {
-      return;
-    }
-    this.httpProbServer = http.createServer();
-    this.httpProbServer.on('request', (request, response) => {
-      if (request.url === '/healthcheck' && request.method === 'GET') {
-        response.writeHead(200).end();
+    try {
+      if (this.httpProbServer || process.env.ENVIRONMENT === 'local') {
         return;
       }
-      response.writeHead(500).end();
-    });
+      this.httpProbServer = http.createServer();
+      this.httpProbServer.on('request', (request, response) => {
+        if (request.url === '/healthcheck' && request.method === 'GET') {
+          response.writeHead(200).end();
+          return;
+        }
+        response.writeHead(500).end();
+      });
 
-    this.httpProbServer.listen(8081);
+      this.httpProbServer.listen(8081);
+    } catch (error) {
+      if (this.broker.isUnion) {
+        return;
+      }
+      throw error;
+    }
   }
 
   /**
    * Logs events from the broker
    */
   private async watchBrokerEvents() {
-    for await (const event of this.brocker.status()) {
+    for await (const event of this.broker.status()) {
       this.logger.warn(`${event.type}: ${event.data}`);
     }
   }
@@ -487,7 +494,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
    * Build message for broker
    */
   private buildMessage(message: unknown) {
-    return JSONCodec().encode(message); //Buffer.from(JSON.stringify(message));
+    return JSONCodec().encode(message);
   }
 
   private async upHTTPServer() {
