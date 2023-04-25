@@ -296,6 +296,6 @@ export class Client<E extends Emitter = Emitter> extends Root {
   }
 
   private isJsMessage(message: JsMsg | Msg): message is JsMsg {
-    return !!(message as JsMsg).sid;
+    return !!(message as JsMsg).ack && !!(message as JsMsg).nak;
   }
 }

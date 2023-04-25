@@ -40,11 +40,12 @@ export class UnionBroker implements Broker {
   }
 
   publish(subject: string, data?: Uint8Array, options?: PublishOptions): void {
-    this.emitter.emit(subject, data);
+    this.emitter.emit(subject, { data });
   }
   subscribe(subject: string, opts?: SubscriptionOptions): Subscription {
     const subscription = new UnionSubscription({ objectMode: true });
     const listener = (message: { data: unknown; respond: (response: unknown) => void }, uniqResponseKey?: string) => {
+      
       if (uniqResponseKey) {
         message['respond'] = (data: unknown) => this.emitter.emit(uniqResponseKey, { data });
       }

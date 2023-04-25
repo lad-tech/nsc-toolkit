@@ -459,26 +459,24 @@ export class Service<E extends Emitter = Emitter> extends Root {
    * Up Probe Route for container orchestration service
    */
   private upProbeRoutes() {
-    try {
-      if (this.httpProbServer || process.env.ENVIRONMENT === 'local') {
-        return;
-      }
-      this.httpProbServer = http.createServer();
-      this.httpProbServer.on('request', (request, response) => {
-        if (request.url === '/healthcheck' && request.method === 'GET') {
-          response.writeHead(200).end();
-          return;
-        }
-        response.writeHead(500).end();
-      });
-
-      this.httpProbServer.listen(8081);
-    } catch (error) {
-      if (this.broker.isUnion) {
-        return;
-      }
-      throw error;
+    if (this.httpProbServer || process.env.ENVIRONMENT === 'local') {
+      return;
     }
+    this.httpProbServer = http.createServer();
+    this.httpProbServer.on('request', (request, response) => {
+      if (request.url === '/healthcheck' && request.method === 'GET') {
+        response.writeHead(200).end();
+        return;
+      }
+      response.writeHead(500).end();
+    });
+
+    this.httpProbServer.listen(8081).once('error', error => {
+      if (!this.broker.isUnion) {
+        throw error;
+      }
+      this.httpProbServer = undefined;
+    });
   }
 
   /**

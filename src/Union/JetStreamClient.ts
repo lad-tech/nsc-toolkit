@@ -36,8 +36,8 @@ export class JetStreamClientBlank implements JetStreamClient {
   }
   subscribe(subject: string, opts: ConsumerOptsBuilder | Partial<ConsumerOpts>): Promise<JetStreamSubscription> {
     const subscription = new UnionSubscription({ objectMode: true });
-    const listener = (message: any) => {
-      subscription.push({ ...message, ack: () => Promise.resolve(), nak: () => Promise.resolve() });
+    const listener = ({ data }: any) => {
+      subscription.write({ data, ack: () => Promise.resolve(), nak: () => Promise.resolve() });
     };
     this.emitter.on(subject, listener);
 

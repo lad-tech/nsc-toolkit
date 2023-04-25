@@ -1,4 +1,4 @@
-import { connect, NatsConnection } from 'nats';
+import { NatsConnection } from 'nats';
 import LogicService, { WeirdSumRequest } from '../LogicService';
 import MathService from '../MathService';
 import { Service } from '../../src/Service';
@@ -26,6 +26,10 @@ const upHttpGate = async (service: Service) => {
     logger.info('Get new event "Elapsed": ', message.data);
     message.ack();
   });
+
+  mathEmmiter.on('Notify', message => {
+    logger.info('Get new event "Notify": ', message.data);
+  })
 
   const fastify = Fastify();
 

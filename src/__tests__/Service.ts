@@ -46,7 +46,7 @@ describe('Testing Service class methods', () => {
 
   const getHttpServerMock: () => http.Server = () => {
     const emitter = new EventEmitter();
-    emitter['listen'] = jest.fn();
+    emitter['listen'] = jest.fn().mockReturnValue({ once: jest.fn() });
     emitter['close'] = jest.fn();
     emitter['address'] = () => 5000;
     return emitter as any;
