@@ -2,7 +2,7 @@
   "name": "gate",
   "version": "1.0.0",
   "description": "",
-  "main": "dist/examples/HttpGate/start.mono.js",
+  "main": "",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "buildMono": "rm -rf ./dist && npx tsc --project tsconfig.mono.json",
