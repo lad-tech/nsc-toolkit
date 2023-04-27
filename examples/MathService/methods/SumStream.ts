@@ -21,14 +21,14 @@ export class SumStream extends BaseMethod<EmitterMath> {
 
     performance.mark('durationSum');
 
+    this.emitter.Notify({ method: 'SumStream' });
+
     for await (const chunk of request) {
       const sequenceNumber = +Buffer.from(chunk).toString();
       this.result += sequenceNumber;
     }
 
     performance.measure('Duration', 'durationSum');
-
-    this.emitter.Notify({ method: 'SumStream' });
 
     return { result: this.result };
   }
