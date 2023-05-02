@@ -1,6 +1,6 @@
 import { SumStreamResponse } from '../interfaces';
 import { related } from '../../../src/injector';
-import { methods } from '../service.json';
+import { methods } from '../service.schema.json';
 import { Readable } from 'stream';
 import { BaseMethod } from '../../../src/Method';
 import { EmitterMath } from '../interfaces';

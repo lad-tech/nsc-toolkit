@@ -2,7 +2,7 @@ import { Client } from '../../src/Client';
 import { NatsConnection } from 'nats';
 import { WeirdSumRequest, WeirdSumResponse } from './interfaces';
 import { Baggage, CacheSettings } from '../../src/interfaces';
-import { name, methods } from './service.json';
+import { name, methods } from './service.schema.json';
 export * from './interfaces';
 
 export default class ServiceMathClient extends Client {

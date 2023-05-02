@@ -1,6 +1,6 @@
 import { FibonacciRequest } from '../interfaces';
 import { related } from '../../../src/injector';
-import { methods } from '../service.json';
+import { methods } from '../service.schema.json';
 import { Readable } from 'stream';
 import { setTimeout } from 'timers/promises';
 import { BaseMethod } from '../../../src/Method';

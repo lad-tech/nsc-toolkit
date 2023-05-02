@@ -1,7 +1,7 @@
 import { Service } from '../../src/Service';
 import { EmitterMath } from './interfaces';
-import { name, events } from './service.json';
 import { connect, NatsConnection } from 'nats';
+import { name, events } from './service.schema.json';
 
 import { Sum } from './methods/Sum';
 import { SumStream } from './methods/SumStream';

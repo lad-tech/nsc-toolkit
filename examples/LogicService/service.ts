@@ -1,6 +1,6 @@
 import { Service } from '../../src/Service';
-import { name } from './service.json';
 import { connect, NatsConnection } from 'nats';
+import { name } from './service.schema.json';
 
 import { WeirdSum } from './methods/WeirdSum';
 

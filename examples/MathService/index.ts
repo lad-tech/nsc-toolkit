@@ -1,5 +1,5 @@
 import { Client } from '../../src/Client';
-import { name, methods, events } from './service.json';
+import { name, methods, events } from './service.schema.json';
 
 import type { NatsConnection } from 'nats';
 import type { SumRequest, SumResponse, EmitterMathExternal, SumStreamResponse, FibonacciRequest } from './interfaces';
