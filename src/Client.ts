@@ -92,13 +92,13 @@ export class Client<E extends Emitter = Emitter> extends Root {
 
               if (isStream) {
                 subscription = await new StreamManager({
-                  broker: this.brocker,
+                  broker: this.broker,
                   options: this.events!.streamOptions,
                   serviceName: this.serviceName,
                 }).createConsumer(serviceNameFrom, String(eventName), options);
               } else {
                 const queue = options?.queue ? { queue: options.queue } : {};
-                subscription = this.brocker.subscribe(`${this.serviceName}.${eventName as string}`, queue);
+                subscription = this.broker.subscribe(`${this.serviceName}.${eventName as string}`, queue);
               }
 
               this.subscriptions.set(eventName, subscription);
@@ -199,7 +199,7 @@ export class Client<E extends Emitter = Emitter> extends Root {
 
   private async getHTTPSettingsFromRemoteService() {
     const subject = `${this.serviceName}.${this.SERVICE_SUBJECT_FOR_GET_HTTP_SETTINGS}`;
-    const result = await this.brocker.request(subject, Buffer.from(JSON.stringify('')), {
+    const result = await this.broker.request(subject, Buffer.from(JSON.stringify('')), {
       timeout: this.REQUEST_HTTP_SETTINGS_TIMEOUT,
     });
     const { ip, port } = JSONCodec<HttpSettings>().decode(result.data);
@@ -215,7 +215,7 @@ export class Client<E extends Emitter = Emitter> extends Root {
 
   private async makeBrokerRequest(subject: string, message: Message, timeout: number) {
     try {
-      const result = await this.brocker.request(subject, Buffer.from(JSON.stringify(message)), { timeout });
+      const result = await this.broker.request(subject, Buffer.from(JSON.stringify(message)), { timeout });
       return JSONCodec<Message<any>>().decode(result.data);
     } catch (error) {
       return this.buildErrorMessage(error);
@@ -296,6 +296,6 @@ export class Client<E extends Emitter = Emitter> extends Root {
   }
 
   private isJsMessage(message: JsMsg | Msg): message is JsMsg {
-    return !!(message as JsMsg).sid;
+    return !!(message as JsMsg).ack && !!(message as JsMsg).nak;
   }
 }
