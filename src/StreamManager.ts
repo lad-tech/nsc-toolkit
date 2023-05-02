@@ -61,7 +61,6 @@ export class StreamManager extends Root {
         }
         throw error;
       });
-
       if (!existingStream) {
         await this.jsm.streams.add(config);
         continue;
@@ -103,7 +102,7 @@ export class StreamManager extends Root {
       }
     }
 
-    return this.brocker.jetstream().subscribe(subjeсt, options);
+    return this.broker.jetstream().subscribe(subjeсt, options);
   }
 
   private getStreamName(eventName: string) {

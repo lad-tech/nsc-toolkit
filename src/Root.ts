@@ -2,14 +2,21 @@ import { Logs } from '@lad-tech/toolbelt';
 import * as opentelemetry from '@opentelemetry/api';
 import type { NatsConnection } from 'nats';
 import type { Baggage } from './interfaces';
+import { UnionBroker, Broker } from './Union';
 
 export class Root {
   protected readonly SERVICE_SUBJECT_FOR_GET_HTTP_SETTINGS = 'get_http_settings';
   protected readonly CACHE_SERVICE_KEY = 'CACHE';
   protected readonly SUBJECT_DELIMITER = '.';
   protected logger: Logs.Logger;
+  public broker: Broker;
 
-  constructor(protected brocker: NatsConnection, outputFormatter?: Logs.OutputFormatter) {
+  constructor(broker?: NatsConnection, outputFormatter?: Logs.OutputFormatter) {
+    if (!broker) {
+      this.broker = new UnionBroker();
+    } else {
+      this.broker = broker;
+    }
     this.logger = new Logs.Logger({ outputFormatter });
   }
 

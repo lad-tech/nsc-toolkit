@@ -133,7 +133,7 @@ export interface Events<E extends Emitter> {
 
 export interface ServiceOptions<E extends Emitter> {
   name: string;
-  brokerConnection: NatsConnection;
+  brokerConnection?: NatsConnection;
   methods: Method[];
   events?: Events<E>;
   cache?: CacheSettings;

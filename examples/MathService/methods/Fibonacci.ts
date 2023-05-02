@@ -4,7 +4,6 @@ import { methods } from '../service.json';
 import { Readable } from 'stream';
 import { setTimeout } from 'timers/promises';
 import { BaseMethod } from '../../../src/Method';
-import { Method } from '../../../src/interfaces';
 
 @related
 export class Fibonacci extends BaseMethod {

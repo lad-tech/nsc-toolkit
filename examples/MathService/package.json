@@ -2,7 +2,7 @@
   "name": "mathservice",
   "version": "1.0.0",
   "description": "",
-  "main": "dist/examples/MathService/service.js",
+  "main": "dist/examples/MathService/start.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "rm -rf ./dist && npx tsc"

@@ -1,14 +1,16 @@
 import { Service } from '../../src/Service';
 import { name } from './service.json';
-import { connect } from 'nats';
+import { connect, NatsConnection } from 'nats';
 
 import { WeirdSum } from './methods/WeirdSum';
 
-(async () => {
-  const brokerConnection = await connect({ servers: ['localhost:4222'] });
-  new Service({
+export const service = async (broker?: NatsConnection) => {
+  const brokerConnection = broker || (await connect({ servers: ['localhost:4222'] }));
+  const service = new Service({
     name,
     brokerConnection,
     methods: [WeirdSum],
-  }).start();
-})();
+  });
+  await service.start();
+  return service;
+};
