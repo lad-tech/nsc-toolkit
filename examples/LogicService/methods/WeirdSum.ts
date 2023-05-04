@@ -1,6 +1,6 @@
 import { WeirdSumRequest, WeirdSumResponse } from '../interfaces';
 import { related, service } from '../../../src/injector';
-import { methods } from '../service.json';
+import { methods } from '../service.schema.json';
 
 import Math from '../../MathService/index';
 import { BaseMethod } from '../../../src/Method';

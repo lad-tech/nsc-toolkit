@@ -1,6 +1,6 @@
 import { SumStreamResponse } from '../interfaces';
 import { related } from '../../../src/injector';
-import { methods } from '../service.json';
+import { methods } from '../service.schema.json';
 import { Readable } from 'stream';
 import { BaseMethod } from '../../../src/Method';
 import { EmitterMath } from '../interfaces';
@@ -21,14 +21,14 @@ export class SumStream extends BaseMethod<EmitterMath> {
 
     performance.mark('durationSum');
 
+    this.emitter.Notify({ method: 'SumStream' });
+
     for await (const chunk of request) {
       const sequenceNumber = +Buffer.from(chunk).toString();
       this.result += sequenceNumber;
     }
 
     performance.measure('Duration', 'durationSum');
-
-    this.emitter.Notify({ method: 'SumStream' });
 
     return { result: this.result };
   }

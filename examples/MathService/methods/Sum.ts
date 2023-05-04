@@ -1,6 +1,6 @@
 import { SumRequest, SumResponse } from '../interfaces';
 import { related } from '../../../src/injector';
-import { methods } from '../service.json';
+import { methods } from '../service.schema.json';
 import { BaseMethod } from '../../../src/Method';
 
 @related
