@@ -45,12 +45,19 @@ export class Client<E extends Emitter = Emitter> extends Root {
     this.events = events;
     //  TODO подумать над более интересным вариантом
     const ref = path.resolve(path.dirname(module?.parent?.filename || ''), './schemas/');
-    const files = fs.readdirSync(ref, { withFileTypes: true }).filter(item => !item.isDirectory());
-    if (files.length) {
-      files.forEach(file => {
-        const { name } = file;
-        this.ajv.addSchema(fs.readFileSync(path.resolve(ref, name)).toJSON());
-      });
+    try {
+      const exists = fs.existsSync(ref);
+      if (exists) {
+        const files = fs.readdirSync(ref, { withFileTypes: true }).filter(item => !item.isDirectory());
+        if (files.length) {
+          files.forEach(file => {
+            const { name } = file;
+            this.ajv.addSchema(fs.readFileSync(path.resolve(ref, name)).toJSON());
+          });
+        }
+      }
+    } catch (err) {
+      this.logger.error(err);
     }
   }
 
