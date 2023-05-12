@@ -1,4 +1,3 @@
-import { LogVerbosity } from '@lad-tech/toolbelt/src/logs/logger';
 import * as opentelemetry from '@opentelemetry/api';
 import Ajv from 'ajv';
 import { createHash } from 'crypto';
@@ -203,9 +202,6 @@ export class Client<E extends Emitter = Emitter> extends Root {
       span.setAttribute('error', true);
       span.setAttribute('error.kind', error);
       this.logger.error(error);
-      if (this.logger.getVerbosity() === LogVerbosity.DEBUG) {
-        this.logger.error(error.stack);
-      }
       throw error;
     } finally {
       span.end();
