@@ -1,24 +1,27 @@
+import { LogVerbosity } from '@lad-tech/toolbelt/src/logs/logger';
 import * as opentelemetry from '@opentelemetry/api';
 import Ajv from 'ajv';
 import { createHash } from 'crypto';
+import * as fs from 'fs';
 import * as http from 'http';
-import { JetStreamSubscription, JsMsg, Msg, JSONCodec, Subscription } from 'nats';
+import { JetStreamSubscription, JsMsg, JSONCodec, Msg, Subscription } from 'nats';
+import * as path from 'path';
 import { EventEmitter, Readable } from 'stream';
 import { setTimeout } from 'timers/promises';
 import { CacheSettings } from '.';
 import {
   Baggage,
+  ClientParam,
   Emitter,
+  EmitterStreamEvent,
+  Events,
   ExternalBaggage,
+  GetListenerOptions,
   HttpSettings,
   Listener,
   Message,
   MethodOptions,
   MethodSettings,
-  ClientParam,
-  Events,
-  GetListenerOptions,
-  EmitterStreamEvent,
 } from './interfaces';
 import { Root } from './Root';
 import { StreamManager } from './StreamManager';
@@ -29,6 +32,7 @@ export class Client<E extends Emitter = Emitter> extends Root {
   private baggage?: Baggage;
   private cache?: CacheSettings;
   private events?: Events<E>;
+  private ajv = new Ajv();
 
   private subscriptions = new Map<keyof E, Subscription | JetStreamSubscription>();
   private REQUEST_HTTP_SETTINGS_TIMEOUT = 1000; // ms
@@ -36,11 +40,19 @@ export class Client<E extends Emitter = Emitter> extends Root {
   constructor({ broker, events, loggerOutputFormatter, serviceName, baggage, cache }: ClientParam<E>) {
     super(broker, loggerOutputFormatter);
     this.logger.setLocation(serviceName);
-
     this.serviceName = serviceName;
     this.baggage = baggage;
     this.cache = cache;
     this.events = events;
+    //  TODO подумать над более интересным вариантом
+    const ref = path.resolve(path.dirname(module?.parent?.filename || ''), './schemas/');
+    const files = fs.readdirSync(ref, { withFileTypes: true }).filter(item => !item.isDirectory());
+    if (files.length) {
+      files.forEach(file => {
+        const { name } = file;
+        this.ajv.addSchema(fs.readFileSync(path.resolve(ref, name)).toJSON());
+      });
+    }
   }
 
   private async startWatch(
@@ -130,7 +142,7 @@ export class Client<E extends Emitter = Emitter> extends Root {
   }
 
   private validate(data: any, schema: Record<string, unknown>) {
-    const requestValidator = new Ajv().compile(schema);
+    const requestValidator = this.ajv.compile(schema);
     const valid = requestValidator(data);
     if (!valid) {
       throw new Error(JSON.stringify(requestValidator.errors));
@@ -191,6 +203,9 @@ export class Client<E extends Emitter = Emitter> extends Root {
       span.setAttribute('error', true);
       span.setAttribute('error.kind', error);
       this.logger.error(error);
+      if (this.logger.getVerbosity() === LogVerbosity.DEBUG) {
+        this.logger.error(error.stack);
+      }
       throw error;
     } finally {
       span.end();

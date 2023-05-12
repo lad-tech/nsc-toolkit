@@ -1,0 +1,10 @@
+{
+  "$id": "example.json",
+  "type": "object",
+  "additionalProperties": false,
+  "definitions": {
+    "numberField": {
+      "type": "string"
+    }
+  }
+}

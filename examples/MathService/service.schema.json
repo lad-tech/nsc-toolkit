@@ -9,7 +9,9 @@
       "request": {
         "type": "object",
         "properties": {
-          "a": { "type": "number" },
+          "a":{
+            "$ref": "example.json#/definitions/numberField"
+          },
           "b": { "type": "number" }
         },
         "required": ["a", "b"]
