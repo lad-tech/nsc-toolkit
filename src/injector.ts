@@ -2,12 +2,14 @@ import 'reflect-metadata';
 import { Method, ClientService } from './interfaces';
 
 export type Instance = Record<string, (props: unknown) => Promise<unknown>>;
-export type Dependence = ClientService<unknown>;
-export type DependenceStorage = Map<string, Dependence>;
+export type Dependency = ClientService<unknown>;
+export type DependenceStorage = Map<string, Dependency>;
 export type InstanceStorage = Map<string, Instance>;
 
 const serviceMetaKey = Symbol('services');
 const instanceMetaKey = Symbol('instance');
+
+export const dependencyStorageMetaKet = Symbol('dependency');
 
 export const ServiceContainer: Map<string, DependenceStorage> = new Map();
 export const InstanceContainer: Map<string, InstanceStorage> = new Map();
@@ -19,7 +21,7 @@ export function related<T extends Method>(target: T) {
   InstanceContainer.set(target.settings.action, instances);
 }
 
-function setMetaData(item: Dependence | Instance, itemName: string, metaKey: symbol, target: any) {
+function setMetaData(item: Dependency | Instance | symbol, itemName: string, metaKey: symbol, target: any) {
   let storage: Map<string, unknown>;
   if (Reflect.hasMetadata(metaKey, target)) {
     storage = Reflect.getMetadata(metaKey, target);
@@ -30,7 +32,7 @@ function setMetaData(item: Dependence | Instance, itemName: string, metaKey: sym
   storage.set(itemName, item);
 }
 
-export function service(dependence: Dependence) {
+export function service(dependence: Dependency) {
   return function (target: any, dependenceName: string): void {
     setMetaData(dependence, dependenceName, serviceMetaKey, target);
   };
@@ -39,5 +41,11 @@ export function service(dependence: Dependence) {
 export function instance(instance: Instance) {
   return function (target: any, instanceName: string): void {
     setMetaData(instance, instanceName, instanceMetaKey, target);
+  };
+}
+
+export function inject(key: symbol) {
+  return function (target: any, property: string): void {
+    setMetaData(key, property, dependencyStorageMetaKet, target.constructor);
   };
 }

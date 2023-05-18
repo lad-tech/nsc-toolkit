@@ -1,6 +1,6 @@
 import { Client } from '../../src/Client';
 import { NatsConnection } from 'nats';
-import { WeirdSumRequest, WeirdSumResponse } from './interfaces';
+import { WeirdSumRequest, WeirdSumResponse, GetUserRequest, GetUserResponse } from './interfaces';
 import { Baggage, CacheSettings } from '../../src/interfaces';
 import { name, methods } from './service.schema.json';
 export * from './interfaces';
@@ -12,5 +12,9 @@ export default class ServiceMathClient extends Client {
 
   public async weirdSum(payload: WeirdSumRequest) {
     return this.request<WeirdSumResponse>(`${name}.${methods.WeirdSum.action}`, payload, methods.WeirdSum);
+  }
+
+  public async getUser(payload: GetUserRequest) {
+    return this.request<GetUserResponse>(`${name}.${methods.GetUser.action}`, payload, methods.GetUser);
   }
 }

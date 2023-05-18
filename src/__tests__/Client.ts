@@ -1,7 +1,7 @@
 import { JSONCodec } from 'nats';
 
-import { PassThrough, EventEmitter, Readable } from 'stream';
-import * as http from 'http';
+import { PassThrough, EventEmitter, Readable } from 'node:stream';
+import * as http from 'node:http';
 import { MathClient } from './fixtures/MathService';
 
 beforeEach(() => {

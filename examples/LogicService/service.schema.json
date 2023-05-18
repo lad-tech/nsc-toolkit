@@ -26,6 +26,25 @@
         },
         "required": ["result"]
       }
+    },
+    "GetUser": {
+      "action": "getuser",
+      "description": "Get user object",
+      "request": {
+        "type": "object",
+        "properties": {
+          "userId": { "type": "string" }
+        },
+        "required": ["a", "b"]
+      },
+      "response": {
+        "type": "object",
+        "properties": {
+          "firstName": { "type": "string" },
+          "lastName": { "type": "string" }
+        },
+        "required": ["result"]
+      }
     }
   }
 }

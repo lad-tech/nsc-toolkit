@@ -8,3 +8,12 @@ export type WeirdSumRequest = {
 export type WeirdSumResponse = {
   result: number;
 };
+
+export type GetUserRequest = {
+  userId: string;
+};
+
+export type GetUserResponse = {
+  firstName: string;
+  lastName: string;
+};
