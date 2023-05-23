@@ -6,10 +6,12 @@ import { RepositoryPort } from '../domain/ports';
 
 import { BaseMethod } from '../../../src/Method';
 
-export class GetUser extends BaseMethod {
-  static settings = methods.GetUser;
+export class GetUserV2 extends BaseMethod {
+  static settings = methods.GetUserV2;
 
-  @inject(TYPES.Repository) private repository: RepositoryPort;
+  constructor(@inject(TYPES.Repository) private repository: RepositoryPort) {
+    super();
+  }
 
   public async handler({ userId }: GetUserRequest): Promise<GetUserResponse> {
     const result = await this.repository.getUserById(userId);

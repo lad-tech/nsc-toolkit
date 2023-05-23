@@ -26,7 +26,7 @@ export interface MethodSettings {
 
 export interface Method {
   settings: MethodSettings;
-  new (): { handler: (params: any) => Promise<any> };
+  new (...args: unknown[]): { handler: (params: any) => Promise<any> };
 }
 
 export type ClientService<C = Client> = new (

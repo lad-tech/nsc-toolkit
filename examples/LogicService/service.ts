@@ -15,6 +15,7 @@ import Math from '../MathService/index';
 // Methods
 import { WeirdSum } from './methods/WeirdSum';
 import { GetUser } from './methods/GetUser';
+import { GetUserV2 } from './methods/GetUserV2';
 
 export const service = async (broker?: NatsConnection) => {
   const brokerConnection = broker || (await connect({ servers: ['localhost:4222'] }));
@@ -29,7 +30,7 @@ export const service = async (broker?: NatsConnection) => {
   const service = new Service({
     name,
     brokerConnection,
-    methods: [WeirdSum, GetUser],
+    methods: [WeirdSum, GetUser, GetUserV2],
   });
   await service.start();
   return service;

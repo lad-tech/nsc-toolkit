@@ -24,9 +24,16 @@ describe('Successful injection of multi-level dependencies of different types', 
 
   logicService(service.broker);
 
-  test('The required dependencies are successfully injected into the method', async () => {
+  test('Required dependencies successfully injected into method property', async () => {
     const logicClient = service.buildService(Logic);
     const result = await logicClient.getUser({ userId: 'test' });
+
+    expect(result).toEqual({ firstName: 'Jon', lastName: 'Dow' });
+  });
+
+  test('Required dependencies successfully injected into method constructor parameter', async () => {
+    const logicClient = service.buildService(Logic);
+    const result = await logicClient.getUserV2({ userId: 'test' });
 
     expect(result).toEqual({ firstName: 'Jon', lastName: 'Dow' });
   });

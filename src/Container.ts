@@ -1,10 +1,9 @@
-import { DependencyType, ClientService } from '.';
-import { dependencyStorageMetaKet } from './injector';
+import { DependencyType, ClientService, dependencyStorageMetaKey, ConstructorDependencyKey } from '.';
 
 type Constant = Record<string, any>;
 
 type Service<R extends Constant = Constant> = ClientService<R>;
-export type Adapter<R extends Constant = Constant> = new () => R;
+export type Adapter<R extends Constant = Constant> = new (...args: unknown[]) => R;
 
 type Dependency = Service | Adapter | Constant;
 
@@ -17,35 +16,45 @@ type ContainerValue = { type: DependencyType; value: Dependency };
 class Container {
   private readonly container = new Map<symbol, ContainerValue>();
 
-  private inject(dependency: ContainerValue): ContainerValue {
-    if (this.isServiceDependency(dependency)) {
-      return dependency;
+  private buildDependency(key: symbol) {
+    const deepDependency = this.get(key);
+
+    if (this.isAdapterDependency(deepDependency.dependency)) {
+      return new deepDependency.dependency.value(...deepDependency.constructor);
     }
 
-    const deepDependencies: Map<string, symbol> | undefined = Reflect.getMetadata(
-      dependencyStorageMetaKet,
+    if (this.isConstantDependency(deepDependency.dependency)) {
+      return deepDependency.dependency.value;
+    }
+  }
+
+  private inject(dependency: ContainerValue): { dependency: ContainerValue; constructor: Array<unknown> } {
+    if (this.isServiceDependency(dependency)) {
+      return { dependency, constructor: [] };
+    }
+
+    const deepDependencies: Map<string, symbol | symbol[]> | undefined = Reflect.getMetadata(
+      dependencyStorageMetaKey,
       dependency.value,
     );
 
     if (deepDependencies && deepDependencies.size) {
+      const constructor: unknown[] = [];
+
       deepDependencies.forEach((key, propertyName) => {
-        const deepDependency = this.get(key);
-
-        const dependencyProto = dependency.value.prototype;
-
-        if (this.isAdapterDependency(deepDependency)) {
-          dependencyProto[propertyName] = new deepDependency.value();
-        }
-
-        if (this.isConstantDependency(deepDependency)) {
-          dependencyProto[propertyName] = deepDependency.value;
+        if (Array.isArray(key)) {
+          key.forEach((item, index) => {
+            constructor[index] = this.buildDependency(item);
+          });
+        } else {
+          dependency.value.prototype[propertyName] = this.buildDependency(key);
         }
       });
 
-      return dependency;
+      return { dependency, constructor };
     }
 
-    return dependency;
+    return { dependency, constructor: [] };
   }
 
   private isServiceDependency(dependency: ContainerValue): dependency is ServiceDependency {
@@ -86,7 +95,7 @@ class Container {
   }
 
   public getInstance<R = Constant>(key: symbol): R | null {
-    const dependency = this.get(key);
+    const { dependency, constructor } = this.get(key);
 
     if (this.isServiceDependency(dependency)) {
       throw new Error(`Unable to get service instance`);
@@ -97,7 +106,7 @@ class Container {
     }
 
     if (this.isAdapterDependency(dependency)) {
-      return new dependency.value() as R;
+      return new dependency.value(...constructor) as R;
     }
 
     return null;

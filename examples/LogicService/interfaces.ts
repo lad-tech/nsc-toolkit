@@ -17,3 +17,12 @@ export type GetUserResponse = {
   firstName: string;
   lastName: string;
 };
+
+export type GetUserRequestV2 = {
+  userId: string;
+};
+
+export type GetUserResponseV2 = {
+  firstName: string;
+  lastName: string;
+};
