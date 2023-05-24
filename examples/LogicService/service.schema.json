@@ -15,7 +15,7 @@
         "type": "object",
         "properties": {
           "a": { "type": "number" },
-          "b": {"type": "number" }
+          "b": { "type": "number" }
         },
         "required": ["a", "b"]
       },
@@ -23,6 +23,44 @@
         "type": "object",
         "properties": {
           "result": { "type": "number" }
+        },
+        "required": ["result"]
+      }
+    },
+    "GetUser": {
+      "action": "getuser",
+      "description": "Get user object",
+      "request": {
+        "type": "object",
+        "properties": {
+          "userId": { "type": "string" }
+        },
+        "required": ["a", "b"]
+      },
+      "response": {
+        "type": "object",
+        "properties": {
+          "firstName": { "type": "string" },
+          "lastName": { "type": "string" }
+        },
+        "required": ["result"]
+      }
+    },
+    "GetUserV2": {
+      "action": "getuserv2",
+      "description": "Get user object",
+      "request": {
+        "type": "object",
+        "properties": {
+          "userId": { "type": "string" }
+        },
+        "required": ["a", "b"]
+      },
+      "response": {
+        "type": "object",
+        "properties": {
+          "firstName": { "type": "string" },
+          "lastName": { "type": "string" }
         },
         "required": ["result"]
       }

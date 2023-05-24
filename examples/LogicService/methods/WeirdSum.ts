@@ -1,14 +1,14 @@
 import { WeirdSumRequest, WeirdSumResponse } from '../interfaces';
-import { related, service } from '../../../src/injector';
+import { inject } from '../../../src/injector';
 import { methods } from '../service.schema.json';
+import { TYPES } from '../inversion.types';
+import { MathPort } from '../domain/ports/Math';
 
-import Math from '../../MathService/index';
 import { BaseMethod } from '../../../src/Method';
 
-@related
 export class WeirdSum extends BaseMethod {
   static settings = methods.WeirdSum;
-  @service(Math) private math: Math;
+  @inject(TYPES.Math) private math: MathPort;
 
   public async handler(request: WeirdSumRequest): Promise<WeirdSumResponse> {
     this.logger.info('sum started: ', request);

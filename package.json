@@ -6,7 +6,7 @@
   "types": "./dist/types/index.d.ts",
   "scripts": {
     "build": "rm -rf ./dist && tsc",
-    "test": "rm -rf ./dist && NODE_PATH=../ npx jest --maxWorkers=50% --coverage --forceExit"
+    "test": "rm -rf ./dist && NODE_PATH=../ npx jest --coverage --forceExit"
   },
   "keywords": [],
   "author": "DevHive crew",

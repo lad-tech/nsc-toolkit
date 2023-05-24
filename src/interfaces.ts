@@ -26,7 +26,7 @@ export interface MethodSettings {
 
 export interface Method {
   settings: MethodSettings;
-  new (): { handler: (params: any) => Promise<any> };
+  new (...args: unknown[]): { handler: (params: any) => Promise<any> };
 }
 
 export type ClientService<C = Client> = new (
@@ -162,3 +162,10 @@ export interface CacheService {
   get: (key: string) => Promise<string | undefined>;
   delete: (key: string) => Promise<void>;
 }
+
+export type DependencyType = typeof DependencyType[keyof typeof DependencyType];
+export const DependencyType = {
+  SERVICE: 'service', // External service
+  ADAPTER: 'adapter', // A class with asynchronous methods such as a repository
+  CONSTANT: 'constant', // Just an object
+} as const;
