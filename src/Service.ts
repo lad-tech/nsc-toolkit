@@ -302,9 +302,10 @@ export class Service<E extends Emitter = Emitter> extends Root {
         try {
           if (chunk instanceof Buffer) {
             push(null, chunk);
+          } else {
+            const result = JSON.stringify(chunk);
+            push(null, result);
           }
-          const result = JSON.stringify(chunk);
-          push(null, result);
         } catch (error) {
           push(error);
         }
