@@ -3,7 +3,7 @@ import { DependencyType, ClientService, dependencyStorageMetaKey, ConstructorDep
 type Constant = Record<string, any>;
 
 type Service<R extends Constant = Constant> = ClientService<R>;
-export type Adapter<R extends Constant = Constant> = new (...args: unknown[]) => R;
+export type Adapter<R extends Constant = Constant> = new (...args: any[]) => R;
 
 type Dependency = Service | Adapter | Constant;
 
