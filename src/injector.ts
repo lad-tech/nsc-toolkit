@@ -18,7 +18,7 @@ export const ConstructorDependencyKey = 'constructor';
 
 interface MetaDataParam {
   item: Dependency | Instance | symbol;
-  itemName: string;
+  itemName: string | symbol;
   metaKey: symbol;
   target: any;
   index?: number;
@@ -32,7 +32,7 @@ export function related<T extends Method>(target: T) {
 }
 
 function setMetaData({ item, itemName, metaKey, target, index }: MetaDataParam) {
-  let storage: Map<string, unknown>;
+  let storage: Map<string | symbol, unknown>;
 
   if (Reflect.hasMetadata(metaKey, target)) {
     storage = Reflect.getMetadata(metaKey, target);
@@ -71,10 +71,10 @@ export function instance(instance: Instance) {
 }
 
 export function inject(key: symbol) {
-  return function (target: any, property: string, index?: number): void {
+  return function (target: any, property: string | symbol | undefined, index?: number): void {
     setMetaData({
       item: key,
-      itemName: property,
+      itemName: property!,
       metaKey: dependencyStorageMetaKey,
       target: typeof index === 'number' ? target : target.constructor,
       index,
