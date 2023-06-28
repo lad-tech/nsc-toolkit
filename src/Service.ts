@@ -1,20 +1,36 @@
 import { Root } from './Root';
 import { JSONCodec, Subscription } from 'nats';
-import { Message, Emitter, Method, ServiceOptions, Baggage, ExternalBaggage, ClientService } from './interfaces';
+import {
+  Message,
+  Emitter,
+  Method,
+  ServiceOptions,
+  Baggage,
+  ExternalBaggage,
+  ClientService,
+  DependencyType,
+  Adapter,
+  container,
+  InstanceContainer,
+  ServiceContainer,
+  Dependency,
+  Instance,
+  dependencyStorageMetaKey,
+  ConstructorDependencyKey,
+} from '.';
 import { BasicTracerProvider, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { Resource } from '@opentelemetry/resources';
 import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
 import { Tracer, Context, Span, trace } from '@opentelemetry/api';
-import { InstanceContainer, ServiceContainer } from './injector';
 import { JaegerExporter } from '@opentelemetry/exporter-jaeger';
-import { IncomingHttpHeaders, ServerResponse } from 'http';
-import { Readable, Transform } from 'stream';
-import { pipeline } from 'stream/promises';
+import { IncomingHttpHeaders, ServerResponse } from 'node:http';
+import { Readable, Transform } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { Logs } from '@lad-tech/toolbelt';
-import * as http from 'http';
-import * as os from 'os';
-import { setTimeout } from 'timers/promises';
-import { promisify } from 'util';
+import * as http from 'node:http';
+import * as os from 'node:os';
+import { setTimeout } from 'node:timers/promises';
+import { promisify } from 'node:util';
 import { StreamManager } from './StreamManager';
 
 export class Service<E extends Emitter = Emitter> extends Root {
@@ -101,39 +117,96 @@ export class Service<E extends Emitter = Emitter> extends Root {
   }
 
   /**
+   * Build trap for object with async methods
+   */
+  private getTrap(instance: Instance, tracer: Tracer, baggage?: Baggage) {
+    const perform = this.perform;
+    const context = this.getContext(baggage);
+    return {
+      get(target: any, propKey: string, receiver: any) {
+        const method = Reflect.get(target, propKey, receiver);
+        if (typeof method === 'function') {
+          return function (...args: unknown[]) {
+            return perform(method, instance, args, tracer, context);
+          };
+        } else {
+          return method;
+        }
+      },
+    };
+  }
+
+  /**
    * Creating an object to inject into Method (business logic)
    */
-  private createObjectWithDependencies(action: string, tracer: Tracer, baggage?: Baggage) {
-    const services = ServiceContainer.get(action);
-    const dependences: Record<string, unknown> = {};
-    if (services?.size) {
+  private createObjectWithDependencies(method: Method, tracer: Tracer, baggage?: Baggage) {
+    const services = ServiceContainer.get(method.settings.action) || new Map<string, Dependency>();
+    const instances = InstanceContainer.get(method.settings.action) || new Map<string, Instance>();
+
+    const dependences: Record<string, any> = { [ConstructorDependencyKey]: [] };
+
+    const dependencyStorage: Map<string, symbol | symbol[]> | undefined = Reflect.getMetadata(
+      dependencyStorageMetaKey,
+      method,
+    );
+
+    if (dependencyStorage && dependencyStorage.size) {
+      dependencyStorage.forEach((dependencyKey, propertyName) => {
+        if (Array.isArray(dependencyKey)) {
+          if (propertyName === ConstructorDependencyKey) {
+            dependencyKey.forEach((item, index) => {
+              const { dependency, constructor } = container.get(item);
+              if (dependency.type === DependencyType.SERVICE) {
+                dependences[ConstructorDependencyKey][index] = new (dependency.value as Dependency)(
+                  this.broker,
+                  baggage,
+                  this.options.cache,
+                );
+              }
+              if (dependency.type === DependencyType.ADAPTER) {
+                const instance = new (dependency.value as Adapter)(...constructor);
+                const trap = this.getTrap(instance, tracer, baggage);
+                dependences[ConstructorDependencyKey][index] = new Proxy(instance, trap);
+              }
+              if (dependency.type === DependencyType.CONSTANT) {
+                dependences[ConstructorDependencyKey][index] = dependency.value;
+              }
+            });
+          }
+          return;
+        }
+
+        const { dependency, constructor } = container.get(dependencyKey);
+
+        if (dependency.type === DependencyType.SERVICE) {
+          services.set(propertyName, dependency.value as Dependency);
+        }
+
+        if (dependency.type === DependencyType.ADAPTER) {
+          instances.set(propertyName, new (dependency.value as Adapter)(...constructor) as Instance);
+        }
+
+        if (dependency.type === DependencyType.CONSTANT) {
+          dependences[propertyName] = dependency;
+        }
+      });
+    }
+
+    if (services.size) {
       services.forEach((Dependence, key) => {
         dependences[key] = new Dependence(this.broker, baggage, this.options.cache);
       });
     }
-    const perform = this.perform;
-    const context = this.getContext(baggage);
-    const instances = InstanceContainer.get(action);
-    if (instances?.size) {
+
+    if (instances.size) {
       instances.forEach((instance, key) => {
-        const trap = {
-          get(target: any, propKey: string, receiver: any) {
-            const method = Reflect.get(target, propKey, receiver);
-            if (typeof method === 'function') {
-              return function (...args: unknown[]) {
-                return perform(method, instance, args, tracer, context);
-              };
-            } else {
-              return method;
-            }
-          },
-        };
+        const trap = this.getTrap(instance, tracer, baggage);
         dependences[key] = new Proxy(instance, trap);
       });
     }
 
     dependences['logger'] = new Logs.Logger({
-      location: `${this.serviceName}.${action}`,
+      location: `${this.serviceName}.${method.settings.action}`,
       metadata: baggage,
       outputFormatter: this.options.loggerOutputFormatter,
     });
@@ -144,7 +217,8 @@ export class Service<E extends Emitter = Emitter> extends Root {
    * Create Method (business logic) context
    */
   private createMethodContext(Method: Method, dependencies: Record<string, unknown>) {
-    const context = new Method();
+    const constructor = (dependencies[ConstructorDependencyKey] as Array<unknown>) || [];
+    const context = new Method(...constructor);
     for (const key in dependencies) {
       context[key] = dependencies[key];
     }
@@ -228,9 +302,10 @@ export class Service<E extends Emitter = Emitter> extends Root {
         try {
           if (chunk instanceof Buffer) {
             push(null, chunk);
+          } else {
+            const result = JSON.stringify(chunk);
+            push(null, result);
           }
-          const result = JSON.stringify(chunk);
-          push(null, result);
         } catch (error) {
           push(error);
         }
@@ -311,7 +386,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
 
     try {
       const requestedDependencies = this.createObjectWithDependencies(
-        Method.settings.action,
+        Method,
         tracer,
         this.getNextBaggage(span, baggage),
       );

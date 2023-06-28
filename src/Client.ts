@@ -1,12 +1,10 @@
 import * as opentelemetry from '@opentelemetry/api';
 import Ajv from 'ajv';
-import { createHash } from 'crypto';
-import * as fs from 'fs';
-import * as http from 'http';
-import { JetStreamSubscription, JsMsg, JSONCodec, Msg, Subscription } from 'nats';
-import * as path from 'path';
-import { EventEmitter, Readable } from 'stream';
-import { setTimeout } from 'timers/promises';
+import { createHash } from 'node:crypto';
+import * as http from 'node:http';
+import { JetStreamSubscription, JsMsg, Msg, JSONCodec, Subscription } from 'nats';
+import { EventEmitter, Readable } from 'node:stream';
+import { setTimeout } from 'node:timers/promises';
 import { CacheSettings } from '.';
 import {
   Baggage,

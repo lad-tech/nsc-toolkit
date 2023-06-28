@@ -1,5 +1,5 @@
 import { NatsConnection } from 'nats';
-import LogicService, { WeirdSumRequest } from '../LogicService';
+import LogicService, { WeirdSumRequest, GetUserRequest } from '../LogicService';
 import MathService from '../MathService';
 import { Service } from '../../src/Service';
 import { SimpleCache } from '../SimpleCache';
@@ -29,7 +29,7 @@ const upHttpGate = async (service: Service) => {
 
   mathEmmiter.on('Notify', message => {
     logger.info('Get new event "Notify": ', message.data);
-  })
+  });
 
   const fastify = Fastify();
 
@@ -48,6 +48,10 @@ const upHttpGate = async (service: Service) => {
 
   fastify.post<{ Body: WeirdSumRequest }>('/math/weird/sum', async request => {
     return await service.buildService(LogicService, request.baggage).weirdSum(request.body);
+  });
+
+  fastify.get<{ Params: GetUserRequest }>('/logic/user/:userId', async request => {
+    return await service.buildService(LogicService, request.baggage).getUser(request.params);
   });
 
   await fastify.listen({ port: HTTP_SERVICE_PORT });
