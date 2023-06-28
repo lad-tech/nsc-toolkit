@@ -10,9 +10,11 @@
         "type": "object",
         "properties": {
           "a":{
-            "$ref": "example.json#/definitions/numberField"
+            "$ref": "TestService#/definitions/numerable"
           },
-          "b": { "type": "number" }
+          "b": {
+            "$ref": "TestService#/definitions/numerable"
+          }
         },
         "required": ["a", "b"]
       },
@@ -105,6 +107,16 @@
           "rollUps": true
         }
       ]
+    }
+  },
+  "Ref": {
+    "$id": "TestService",
+    "type": "object",
+    "additionalProperties": false,
+    "definitions": {
+      "numerable": {
+        "type": "number"
+      }
     }
   }
 }

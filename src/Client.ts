@@ -1,8 +1,8 @@
 import * as opentelemetry from '@opentelemetry/api';
 import Ajv from 'ajv';
+import { JetStreamSubscription, JsMsg, JSONCodec, Msg, Subscription } from 'nats';
 import { createHash } from 'node:crypto';
 import * as http from 'node:http';
-import { JetStreamSubscription, JsMsg, Msg, JSONCodec, Subscription } from 'nats';
 import { EventEmitter, Readable } from 'node:stream';
 import { setTimeout } from 'node:timers/promises';
 import { CacheSettings } from '.';
@@ -34,28 +34,15 @@ export class Client<E extends Emitter = Emitter> extends Root {
   private subscriptions = new Map<keyof E, Subscription | JetStreamSubscription>();
   private REQUEST_HTTP_SETTINGS_TIMEOUT = 1000; // ms
 
-  constructor({ broker, events, loggerOutputFormatter, serviceName, baggage, cache }: ClientParam<E>) {
+  constructor({ broker, events, loggerOutputFormatter, serviceName, baggage, cache, Ref }: ClientParam<E>) {
     super(broker, loggerOutputFormatter);
     this.logger.setLocation(serviceName);
     this.serviceName = serviceName;
     this.baggage = baggage;
     this.cache = cache;
     this.events = events;
-    //  TODO подумать над более интересным вариантом
-    const ref = path.resolve(path.dirname(module?.parent?.filename || ''), './schemas/');
-    try {
-      const exists = fs.existsSync(ref);
-      if (exists) {
-        const files = fs.readdirSync(ref, { withFileTypes: true }).filter(item => !item.isDirectory());
-        if (files.length) {
-          files.forEach(file => {
-            const { name } = file;
-            this.ajv.addSchema(fs.readFileSync(path.resolve(ref, name)).toJSON());
-          });
-        }
-      }
-    } catch (err) {
-      this.logger.error(err);
+    if (Ref) {
+      this.ajv.addSchema(Ref);
     }
   }
 

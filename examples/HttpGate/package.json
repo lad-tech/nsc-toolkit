@@ -6,12 +6,13 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "buildMono": "rm -rf ./dist && npx tsc --project tsconfig.mono.json",
-    "buildMicro": "rm -rf ./dist && npx tsc --project tsconfig.micro.json"
+    "buildMicro": "rm -rf ./dist && npx tsc --project tsconfig.micro.json",
+    "testRun": " npm run buildMono &&  DEFAULT_REPONSE_TIMEOUT=100  node ./dist/examples/HttpGate/start.mono.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "fastify": "^4.3.0"
+    "fastify": "^4.18.0"
   }
 }
