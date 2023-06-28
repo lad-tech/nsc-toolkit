@@ -9,8 +9,12 @@
       "request": {
         "type": "object",
         "properties": {
-          "a": { "type": "number" },
-          "b": { "type": "number" }
+          "a":{
+            "$ref": "TestService#/definitions/numerable"
+          },
+          "b": {
+            "$ref": "TestService#/definitions/numerable"
+          }
         },
         "required": ["a", "b"]
       },
@@ -103,6 +107,16 @@
           "rollUps": true
         }
       ]
+    }
+  },
+  "Ref": {
+    "$id": "TestService",
+    "type": "object",
+    "additionalProperties": false,
+    "definitions": {
+      "numerable": {
+        "type": "number"
+      }
     }
   }
 }

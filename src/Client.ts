@@ -1,24 +1,24 @@
 import * as opentelemetry from '@opentelemetry/api';
 import Ajv from 'ajv';
+import { JetStreamSubscription, JsMsg, JSONCodec, Msg, Subscription } from 'nats';
 import { createHash } from 'node:crypto';
 import * as http from 'node:http';
-import { JetStreamSubscription, JsMsg, Msg, JSONCodec, Subscription } from 'nats';
 import { EventEmitter, Readable } from 'node:stream';
 import { setTimeout } from 'node:timers/promises';
 import { CacheSettings } from '.';
 import {
   Baggage,
+  ClientParam,
   Emitter,
+  EmitterStreamEvent,
+  Events,
   ExternalBaggage,
+  GetListenerOptions,
   HttpSettings,
   Listener,
   Message,
   MethodOptions,
   MethodSettings,
-  ClientParam,
-  Events,
-  GetListenerOptions,
-  EmitterStreamEvent,
 } from './interfaces';
 import { Root } from './Root';
 import { StreamManager } from './StreamManager';
@@ -29,18 +29,19 @@ export class Client<E extends Emitter = Emitter> extends Root {
   private baggage?: Baggage;
   private cache?: CacheSettings;
   private events?: Events<E>;
+  private Ref?: object;
 
   private subscriptions = new Map<keyof E, Subscription | JetStreamSubscription>();
   private REQUEST_HTTP_SETTINGS_TIMEOUT = 1000; // ms
 
-  constructor({ broker, events, loggerOutputFormatter, serviceName, baggage, cache }: ClientParam<E>) {
+  constructor({ broker, events, loggerOutputFormatter, serviceName, baggage, cache, Ref }: ClientParam<E>) {
     super(broker, loggerOutputFormatter);
     this.logger.setLocation(serviceName);
-
     this.serviceName = serviceName;
     this.baggage = baggage;
     this.cache = cache;
     this.events = events;
+    this.Ref = Ref;
   }
 
   private async startWatch(
@@ -130,7 +131,12 @@ export class Client<E extends Emitter = Emitter> extends Root {
   }
 
   private validate(data: any, schema: Record<string, unknown>) {
-    const requestValidator = new Ajv().compile(schema);
+    const ajv = new Ajv();
+    if (this.Ref) {
+      ajv.addSchema(this.Ref);
+    }
+
+    const requestValidator = ajv.compile(schema);
     const valid = requestValidator(data);
     if (!valid) {
       throw new Error(JSON.stringify(requestValidator.errors));

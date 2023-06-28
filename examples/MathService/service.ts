@@ -1,11 +1,11 @@
+import { connect, NatsConnection } from 'nats';
 import { Service } from '../../src/Service';
 import { EmitterMath } from './interfaces';
-import { connect, NatsConnection } from 'nats';
-import { name, events } from './service.schema.json';
+import { Fibonacci } from './methods/Fibonacci';
 
 import { Sum } from './methods/Sum';
 import { SumStream } from './methods/SumStream';
-import { Fibonacci } from './methods/Fibonacci';
+import { events, name } from './service.schema.json';
 
 export const service = async (broker?: NatsConnection) => {
   const brokerConnection = broker || (await connect({ servers: ['localhost:4222'] }));

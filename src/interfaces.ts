@@ -1,8 +1,8 @@
 // COMMON
 
+import type { Logs } from '@lad-tech/toolbelt';
 import type { NatsConnection } from 'nats';
 import type { Client } from './Client';
-import type { Logs } from '@lad-tech/toolbelt';
 
 export interface MethodOptions {
   useStream?: {
@@ -77,6 +77,7 @@ export interface ClientParam<E extends Emitter = Emitter> {
   cache?: CacheSettings;
   loggerOutputFormatter?: Logs.OutputFormatter;
   events?: Events<E>;
+  Ref?: object;
 }
 
 export interface GetListenerOptions {
