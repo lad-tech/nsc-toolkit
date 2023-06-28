@@ -29,7 +29,7 @@ export class Client<E extends Emitter = Emitter> extends Root {
   private baggage?: Baggage;
   private cache?: CacheSettings;
   private events?: Events<E>;
-  private ajv = new Ajv();
+  private Ref?: object;
 
   private subscriptions = new Map<keyof E, Subscription | JetStreamSubscription>();
   private REQUEST_HTTP_SETTINGS_TIMEOUT = 1000; // ms
@@ -41,9 +41,7 @@ export class Client<E extends Emitter = Emitter> extends Root {
     this.baggage = baggage;
     this.cache = cache;
     this.events = events;
-    if (Ref) {
-      this.ajv.addSchema(Ref);
-    }
+    this.Ref = Ref;
   }
 
   private async startWatch(
@@ -133,7 +131,12 @@ export class Client<E extends Emitter = Emitter> extends Root {
   }
 
   private validate(data: any, schema: Record<string, unknown>) {
-    const requestValidator = this.ajv.compile(schema);
+    const ajv = new Ajv();
+    if (this.Ref) {
+      ajv.addSchema(this.Ref);
+    }
+
+    const requestValidator = ajv.compile(schema);
     const valid = requestValidator(data);
     if (!valid) {
       throw new Error(JSON.stringify(requestValidator.errors));
