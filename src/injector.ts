@@ -59,22 +59,31 @@ function setMetaData({ item, itemName, metaKey, target, index }: MetaDataParam) 
 }
 
 export function service(dependence: Dependency) {
-  return function (target: any, dependenceName: string): void {
+  return function (target: any, dependenceName: string | symbol | undefined): void {
+    if (!dependenceName) {
+      return;
+    }
     setMetaData({ item: dependence, itemName: dependenceName, metaKey: serviceMetaKey, target });
   };
 }
 
 export function instance(instance: Instance) {
-  return function (target: any, instanceName: string): void {
+  return function (target: any, instanceName: string | symbol | undefined): void {
+    if (!instanceName) {
+      return;
+    }
     setMetaData({ item: instance, itemName: instanceName, metaKey: instanceMetaKey, target });
   };
 }
 
 export function inject(key: symbol) {
   return function (target: any, property: string | symbol | undefined, index?: number): void {
+    if (!property) {
+      return;
+    }
     setMetaData({
       item: key,
-      itemName: property!,
+      itemName: property,
       metaKey: dependencyStorageMetaKey,
       target: typeof index === 'number' ? target : target.constructor,
       index,
