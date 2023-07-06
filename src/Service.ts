@@ -104,16 +104,16 @@ export class Service<E extends Emitter = Emitter> extends Root {
     context?: Context,
   ) {
     const span = tracer.startSpan(func.name, undefined, context);
-    const query = func.apply(funcContext, arg);
-    query
-      .then(() => span.end())
-      .catch(error => {
-        span.setAttribute('error', true);
-        span.setAttribute('error.kind', error);
-        span.end();
-        throw error;
-      });
-    return query;
+    try {
+      const result = await func.apply(funcContext, arg);
+      span.end();
+      return result;
+    } catch (error) {
+      span.setAttribute('error', true);
+      span.setAttribute('error.kind', error);
+      span.end();
+      throw error;
+    }
   }
 
   /**
