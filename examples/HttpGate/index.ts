@@ -3,9 +3,10 @@ import Fastify from 'fastify';
 import { NatsConnection } from 'nats';
 import { Baggage, ExternalBaggage } from '../../src/interfaces';
 import { Service } from '../../src/Service';
-import LogicService, { GetUserRequest, WeirdSumRequest } from '../LogicService';
+import LogicService, { GetUserRequest, WeirdSumRequest, RegisterNewUserRequest } from '../LogicService';
 import MathService from '../MathService';
-import { methods, Ref } from '../MathService/service.schema.json';
+import { methods as mathServiceMethods, Ref } from '../MathService/service.schema.json';
+import { methods as logicServiceMethods } from '../LogicService/service.schema.json';
 import { SimpleCache } from '../SimpleCache';
 
 declare module 'fastify' {
@@ -55,12 +56,13 @@ const upHttpGate = async (service: Service) => {
   fastify.post<{ Body: WeirdSumRequest }>('/math/weird/sum', async request => {
     return await service.buildService(LogicService, request.baggage).weirdSum(request.body);
   });
+
   fastify.post<{ Body: WeirdSumRequest }>(
     '/math/simpleSum',
     {
       schema: {
-        body: methods.Sum.request,
-        response: { 200: methods.Sum.response },
+        body: mathServiceMethods.Sum.request,
+        response: { 200: mathServiceMethods.Sum.response },
       },
     },
     async request => {
@@ -71,6 +73,19 @@ const upHttpGate = async (service: Service) => {
   fastify.get<{ Params: GetUserRequest }>('/logic/user/:userId', async request => {
     return await service.buildService(LogicService, request.baggage).getUser(request.params);
   });
+
+  fastify.post<{ Body: RegisterNewUserRequest }>(
+    '/user/register',
+    {
+      schema: {
+        body: logicServiceMethods.RegisterNewUser.request,
+        response: { 200: logicServiceMethods.RegisterNewUser.response },
+      },
+    },
+    async request => {
+      return await service.buildService(LogicService, request.baggage).registerNewUser(request.body);
+    },
+  );
 
   await fastify.listen({ port: HTTP_SERVICE_PORT });
   logger.info(`listen on ${HTTP_SERVICE_PORT}`);

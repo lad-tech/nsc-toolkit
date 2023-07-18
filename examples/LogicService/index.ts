@@ -7,6 +7,8 @@ import {
   GetUserResponse,
   GetUserRequestV2,
   GetUserResponseV2,
+  RegisterNewUserRequest,
+  RegisterNewUserResponse,
 } from './interfaces';
 import { Baggage, CacheSettings } from '../../src/interfaces';
 import { name, methods } from './service.schema.json';
@@ -27,5 +29,13 @@ export default class ServiceMathClient extends Client {
 
   public async getUserV2(payload: GetUserRequestV2) {
     return this.request<GetUserResponseV2>(`${name}.${methods.GetUserV2.action}`, payload, methods.GetUserV2);
+  }
+
+  public async registerNewUser(payload: RegisterNewUserRequest) {
+    return this.request<RegisterNewUserResponse>(
+      `${name}.${methods.RegisterNewUser.action}`,
+      payload,
+      methods.RegisterNewUser,
+    );
   }
 }

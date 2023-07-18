@@ -4,10 +4,10 @@ import { name } from './service.schema.json';
 import { TYPES } from './inversion.types';
 
 // Ports
-import { MathPort, RepositoryPort, ConfiguratorPort, StoragePort } from './domain/ports';
+import { MathPort, RepositoryPort, ConfiguratorPort, StoragePort, AuthToolkitPort } from './domain/ports';
 
 // Adapters
-import { Configurator, Repository } from './adapters';
+import { Configurator, Repository, AuthToolkit } from './adapters';
 
 // Services
 import Math from '../MathService/index';
@@ -16,6 +16,7 @@ import Math from '../MathService/index';
 import { WeirdSum } from './methods/WeirdSum';
 import { GetUser } from './methods/GetUser';
 import { GetUserV2 } from './methods/GetUserV2';
+import { RegisterNewUser } from './methods/RegisterNewUser';
 
 export const service = async (broker?: NatsConnection) => {
   const brokerConnection = broker || (await connect({ servers: ['localhost:4222'] }));
@@ -26,11 +27,12 @@ export const service = async (broker?: NatsConnection) => {
   container.bind<RepositoryPort>(TYPES.Repository, DependencyType.ADAPTER, Repository);
   container.bind<ConfiguratorPort>(TYPES.Configurator, DependencyType.ADAPTER, Configurator);
   container.bind<StoragePort>(TYPES.Storage, DependencyType.CONSTANT, storage);
+  container.bind<AuthToolkitPort>(TYPES.AuthTookit, DependencyType.ADAPTER, AuthToolkit);
 
   const service = new Service({
     name,
     brokerConnection,
-    methods: [WeirdSum, GetUser, GetUserV2],
+    methods: [WeirdSum, GetUser, GetUserV2, RegisterNewUser],
   });
   await service.start();
   return service;

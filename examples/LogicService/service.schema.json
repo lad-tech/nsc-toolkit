@@ -48,7 +48,7 @@
     },
     "GetUserV2": {
       "action": "getuserv2",
-      "description": "Get user object",
+      "description": "Get user object v2",
       "request": {
         "type": "object",
         "properties": {
@@ -63,6 +63,26 @@
           "lastName": { "type": "string" }
         },
         "required": ["result"]
+      }
+    },
+    "RegisterNewUser": {
+      "action": "RegisterNewUser",
+      "description": "Register new user",
+      "request": {
+        "type": "object",
+        "properties": {
+          "username": { "type": "string" },
+          "password": { "type": "string" }
+        },
+        "required": ["username", "password"]
+      },
+      "response": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "hash": { "type": "string" }
+        },
+        "required": ["hash", "id"]
       }
     }
   }

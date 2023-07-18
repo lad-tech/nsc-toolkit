@@ -38,6 +38,14 @@ describe('Successful injection of multi-level dependencies of different types', 
     expect(result).toEqual({ firstName: 'Jon', lastName: 'Dow' });
   });
 
+  test('Adapter with sync and async methods successfully injected', async () => {
+    const logicClient = service.buildService(Logic);
+    const result = await logicClient.registerNewUser({ username: 'JonDow', password: 'qwerty' });
+
+    expect(result.id).not.toBeUndefined();
+    expect(result.hash).not.toBeUndefined();
+  });
+
   describe('Getting an instance of a dependency', () => {
     test('Из контейнера можно получить экземпляр зависимости', async () => {
       const repository = container.getInstance<RepositoryPort>(TYPES.Repository);
