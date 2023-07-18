@@ -93,10 +93,18 @@ export class Service<E extends Emitter = Emitter> extends Root {
     provider.register();
   }
 
+  private finishSpan(span: Span, error?: Error) {
+    if (error) {
+      span.setAttribute('error', true);
+      span.setAttribute('error.kind', error.message);
+    }
+    span.end();
+  }
+
   /**
    * Wrapper for async methods. Create span
    */
-  private async perform(
+  private perform(
     func: (...args: unknown[]) => Promise<unknown>,
     funcContext: unknown,
     arg: unknown[],
@@ -105,13 +113,23 @@ export class Service<E extends Emitter = Emitter> extends Root {
   ) {
     const span = tracer.startSpan(func.name, undefined, context);
     try {
-      const result = await func.apply(funcContext, arg);
-      span.end();
+      const result = func.apply(funcContext, arg);
+      if (result.then) {
+        return result.then(
+          (result: any) => {
+            this.finishSpan(span);
+            return result;
+          },
+          (error: Error) => {
+            this.finishSpan(span, error);
+            throw error;
+          },
+        );
+      }
+      this.finishSpan(span);
       return result;
     } catch (error) {
-      span.setAttribute('error', true);
-      span.setAttribute('error.kind', error);
-      span.end();
+      this.finishSpan(span, error);
       throw error;
     }
   }
@@ -120,7 +138,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
    * Build trap for object with async methods
    */
   private getTrap(instance: Instance, tracer: Tracer, baggage?: Baggage) {
-    const perform = this.perform;
+    const perform = this.perform.bind(this);
     const context = this.getContext(baggage);
     return {
       get(target: any, propKey: string, receiver: any) {
@@ -256,11 +274,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
   public endRootSpan(traceId: string, error?: Error) {
     const span = this.rootSpans.get(traceId);
     if (span) {
-      if (error) {
-        span.setAttribute('error', true);
-        span.setAttribute('error.kind', error.message);
-      }
-      span.end();
+      this.finishSpan(span, error);
       this.rootSpans.delete(traceId);
     }
   }
@@ -394,13 +408,11 @@ export class Service<E extends Emitter = Emitter> extends Root {
       const result = {
         payload: await context.handler.call(context, payload),
       };
-      span.end();
+      this.finishSpan(span);
       return result;
     } catch (error) {
       this.logger.error(error);
-      span.setAttribute('error', true);
-      span.setAttribute('error.kind', error);
-      span.end();
+      this.finishSpan(span, error);
       return this.buildErrorMessage(error);
     }
   }

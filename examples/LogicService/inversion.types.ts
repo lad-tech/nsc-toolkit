@@ -1,6 +1,7 @@
 export const TYPES = {
   Math: Symbol.for('Math'),
-  Repository: Symbol('Repository'),
-  Configurator: Symbol('Configurator'),
-  Storage: Symbol('Storage'),
+  Repository: Symbol.for('Repository'),
+  Configurator: Symbol.for('Configurator'),
+  Storage: Symbol.for('Storage'),
+  AuthTookit: Symbol.for('AuthToolkit'),
 };

@@ -4,6 +4,6 @@
     "outDir": "dist",
     "declarationDir": "dist/types"
   },
-  "include": ["."],
+  "include": ["./start.micro.ts"],
   "exclude": ["node_modules", "dist/**/*", "./start.mono.ts"]
 }

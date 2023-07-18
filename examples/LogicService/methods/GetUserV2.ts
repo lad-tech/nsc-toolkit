@@ -15,6 +15,7 @@ export class GetUserV2 extends BaseMethod {
 
   public async handler({ userId }: GetUserRequest): Promise<GetUserResponse> {
     const result = await this.repository.getUserById(userId);
+
     if (!result) {
       throw new Error(`User ${userId} not found!`);
     }

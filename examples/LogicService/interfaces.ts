@@ -26,3 +26,13 @@ export type GetUserResponseV2 = {
   firstName: string;
   lastName: string;
 };
+
+export type RegisterNewUserRequest = {
+  username: string;
+  password: string;
+};
+
+export type RegisterNewUserResponse = {
+  id: string;
+  hash: string;
+};
