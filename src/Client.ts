@@ -1,6 +1,6 @@
 import * as opentelemetry from '@opentelemetry/api';
 import Ajv from 'ajv';
-import { JetStreamSubscription, JsMsg, JSONCodec, Msg, Subscription } from 'nats';
+import { JetStreamSubscription, JsMsg, JSONCodec, Msg, Subscription, StringCodec } from 'nats';
 import { createHash } from 'node:crypto';
 import * as http from 'node:http';
 import { EventEmitter, Readable } from 'node:stream';
@@ -50,7 +50,12 @@ export class Client<E extends Emitter = Emitter> extends Root {
     eventName: string,
   ) {
     for await (const event of subscription) {
-      const data = JSONCodec<unknown>().decode(event.data);
+      let data: unknown;
+      try {
+        data = JSONCodec<unknown>().decode(event.data);
+      } catch (error) {
+        data = StringCodec().decode(event.data);
+          }
       const message: Partial<EmitterStreamEvent<any>> = { data };
 
       if (this.isJsMessage(event)) {
