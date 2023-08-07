@@ -1,6 +1,6 @@
 import * as opentelemetry from '@opentelemetry/api';
 import Ajv from 'ajv';
-import { JetStreamSubscription, JsMsg, JSONCodec, Msg, Subscription } from 'nats';
+import { JetStreamSubscription, JsMsg, JSONCodec, Msg, Subscription, StringCodec } from 'nats';
 import { createHash } from 'node:crypto';
 import * as http from 'node:http';
 import { EventEmitter, Readable } from 'node:stream';
