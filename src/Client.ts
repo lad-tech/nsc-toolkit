@@ -1,6 +1,6 @@
 import * as opentelemetry from '@opentelemetry/api';
 import Ajv from 'ajv';
-import { JetStreamSubscription, JsMsg, JSONCodec, Msg, Subscription } from 'nats';
+import { JetStreamSubscription, JsMsg, JSONCodec, Msg, Subscription, StringCodec } from 'nats';
 import { createHash } from 'node:crypto';
 import * as http from 'node:http';
 import { EventEmitter, Readable } from 'node:stream';
@@ -44,13 +44,14 @@ export class Client<E extends Emitter = Emitter> extends Root {
     this.Ref = Ref;
   }
 
-  private async startWatch(
-    subscription: Subscription | JetStreamSubscription,
-    listener: EventEmitter,
-    eventName: string,
-  ) {
+  private async startWatch(subscription: Subscription | JetStreamSubscription, listener: EventEmitter, eventName: string) {
     for await (const event of subscription) {
-      const data = JSONCodec<unknown>().decode(event.data);
+      let data: unknown;
+      try {
+        data = JSONCodec<unknown>().decode(event.data);
+      } catch (error) {
+        data = StringCodec().decode(event.data);
+      }
       const message: Partial<EmitterStreamEvent<any>> = { data };
 
       if (this.isJsMessage(event)) {
@@ -146,7 +147,7 @@ export class Client<E extends Emitter = Emitter> extends Root {
   protected async request<R = any, P extends RequestData = RequestData>(
     subject: string,
     data: P,
-    { options, request, response }: MethodSettings,
+    { options, request, response }: MethodSettings
   ): Promise<R> {
     const tracer = opentelemetry.trace.getTracer('');
     const span = tracer.startSpan(subject, undefined, this.getContext(this.baggage));
@@ -232,9 +233,9 @@ export class Client<E extends Emitter = Emitter> extends Root {
     subject: string,
     message: Message | Message<Readable>,
     options: MethodOptions,
-    timeout: number,
+    timeout: number
   ): Promise<Message<any>> {
-    return new Promise(async resolve => {
+    return new Promise(async (resolve) => {
       const { ip, port } = await this.getHTTPSettingsFromRemoteService();
       const serviceActionPath = subject.split('.');
       const headersFromBaggage = this.convertBaggaggeToExternalHeader(message.baggage);
@@ -255,7 +256,7 @@ export class Client<E extends Emitter = Emitter> extends Root {
           headers,
           timeout,
         },
-        async response => {
+        async (response) => {
           if (options?.useStream?.response) {
             resolve({ payload: response });
             return;
@@ -272,10 +273,10 @@ export class Client<E extends Emitter = Emitter> extends Root {
           } catch (error) {
             resolve(this.buildErrorMessage(error));
           }
-        },
+        }
       );
 
-      request.on('error', error => {
+      request.on('error', (error) => {
         resolve(this.buildErrorMessage(error));
       });
 
