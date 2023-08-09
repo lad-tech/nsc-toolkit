@@ -1,20 +1,31 @@
-import { DependencyType, ClientService, dependencyStorageMetaKey, ConstructorDependencyKey } from '.';
+import { DependencyType, ClientService, dependencyStorageMetaKey, InitializableService } from '.';
 
 type Constant = Record<string, any>;
 
 type Service<R extends Constant = Constant> = ClientService<R>;
 export type Adapter<R extends Constant = Constant> = new (...args: any[]) => R;
 
+export type Singlton = { singlton: true };
+export type NeedInit = { init: true };
+
+export type AdapterOptions = Singlton | NeedInit;
+
 type Dependency = Service | Adapter | Constant;
 
 type ServiceDependency = { type: typeof DependencyType.SERVICE; value: Service };
-type AdapterDependency = { type: typeof DependencyType.ADAPTER; value: Adapter };
+type AdapterDependency = { type: typeof DependencyType.ADAPTER; value: Adapter; options?: Singlton } & {
+  type: typeof DependencyType.ADAPTER;
+  value: Adapter<InitializableService>;
+  options?: NeedInit;
+};
 type ConstantDependency = { type: typeof DependencyType.CONSTANT; value: Constant };
 
-type ContainerValue = { type: DependencyType; value: Dependency };
+type ContainerValue = { type: DependencyType; value: Dependency; options?: AdapterOptions };
+type SingltonValue = { value: Constant; init?: boolean };
 
 class Container {
   private readonly container = new Map<symbol, ContainerValue>();
+  private readonly singltons = new Map<symbol, SingltonValue>();
 
   private buildDependency(key: symbol) {
     const deepDependency = this.get(key);
@@ -70,18 +81,36 @@ class Container {
   }
 
   bind<R extends Record<string, any>>(key: symbol, type: typeof DependencyType.SERVICE, value: ClientService<R>): void;
-  bind<R extends Record<string, any>>(key: symbol, type: typeof DependencyType.ADAPTER, value: Adapter<R>): void;
+  bind<R extends Record<string, any>>(
+    key: symbol,
+    type: typeof DependencyType.ADAPTER,
+    value: Adapter<R>,
+    options?: Singlton,
+  ): void;
+  bind<R extends Record<string, any>>(
+    key: symbol,
+    type: typeof DependencyType.ADAPTER,
+    value: Adapter<R & InitializableService>,
+    options?: NeedInit,
+  ): void;
   bind<R extends Record<string, any>>(key: symbol, type: typeof DependencyType.CONSTANT, value: R): void;
   public bind<R extends Record<string, any>>(
     key: symbol,
     type: DependencyType,
     value: ClientService<R> | Adapter<R> | R,
+    options?: AdapterOptions,
   ) {
-    this.container.set(key, { type, value });
+    this.container.set(key, { type, value, options });
   }
 
-  public unbind(key: symbol) {
+  public async unbind(key: symbol) {
     this.container.delete(key);
+
+    const instance = this.singltons.get(key);
+    if (instance?.init) {
+      await instance.value.close();
+    }
+    this.singltons.delete(key);
   }
 
   public get(key: symbol) {
@@ -106,10 +135,32 @@ class Container {
     }
 
     if (this.isAdapterDependency(dependency)) {
-      return new dependency.value(...constructor) as R;
+      if (this.singltons.has(key)) {
+        return this.singltons.get(key)!.value as R;
+      }
+
+      const adapter = new dependency.value(...constructor);
+
+      if (dependency.options?.singlton || dependency.options?.init) {
+        this.singltons.set(key, { value: adapter, init: dependency.options?.init });
+      }
+
+      return adapter as R;
     }
 
     return null;
+  }
+
+  public async initDependencies() {
+    const initialized: InitializableService[] = [];
+    for await (const [key, dependency] of this.container) {
+      if (this.isAdapterDependency(dependency) && dependency.options?.init && !this.singltons.has(key)) {
+        const instance = this.getInstance<InitializableService>(key);
+        await instance?.init();
+        initialized.push(instance!);
+      }
+    }
+    return initialized;
   }
 }
 
