@@ -123,7 +123,7 @@ class Container {
     return this.inject(dependency);
   }
 
-  public getInstance<R = Constant>(key: symbol): R | null {
+  public getInstance<R = Constant>(key: symbol): R {
     const { dependency, constructor } = this.get(key);
 
     if (this.isServiceDependency(dependency)) {
@@ -148,7 +148,7 @@ class Container {
       return adapter as R;
     }
 
-    return null;
+    throw new Error(`Unknown dependency type for key ${key.toString()}`);
   }
 
   public async initDependencies() {
