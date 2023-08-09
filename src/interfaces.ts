@@ -164,6 +164,10 @@ export interface CacheService {
   delete: (key: string) => Promise<void>;
 }
 
+export type InitializableService = GracefulShutdownAdditionalService & {
+  init: () => Promise<any>;
+};
+
 export type DependencyType = typeof DependencyType[keyof typeof DependencyType];
 export const DependencyType = {
   SERVICE: 'service', // External service

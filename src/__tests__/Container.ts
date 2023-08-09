@@ -5,7 +5,7 @@ import { service as logicService } from '../../examples/LogicService/service';
 import { DependencyType } from '..';
 import { RepositoryPort, ConfiguratorPort, StoragePort, MathPort } from '../../examples/LogicService/domain/ports';
 import { TYPES } from '../../examples/LogicService/inversion.types';
-
+import { InitializableService } from './fixtures/InitializableService';
 import { Configurator, Repository } from '../../examples/LogicService/adapters';
 
 describe('Successful injection of multi-level dependencies of different types', () => {
@@ -47,7 +47,7 @@ describe('Successful injection of multi-level dependencies of different types', 
   });
 
   describe('Getting an instance of a dependency', () => {
-    test('Из контейнера можно получить экземпляр зависимости', async () => {
+    test('Can get an instance of a dependency from a container', async () => {
       const repository = container.getInstance<RepositoryPort>(TYPES.Repository);
 
       const result = await repository?.getUserById('test');
@@ -56,7 +56,7 @@ describe('Successful injection of multi-level dependencies of different types', 
     });
 
     test('If the dependency is not bound to a container, an error is returned', async () => {
-      container.unbind(TYPES.Repository);
+      await container.unbind(TYPES.Repository);
       expect(() => container.getInstance<RepositoryPort>(TYPES.Repository)).toThrow();
     });
 
@@ -67,6 +67,53 @@ describe('Successful injection of multi-level dependencies of different types', 
 
     test('If an instance of a constant is requested, a constant is returned', async () => {
       expect(container.getInstance(TYPES.Storage)).toEqual(storage);
+    });
+  });
+
+  describe('Adapter options', () => {
+    const key = Symbol.for('InitializableServiceBindUnbind');
+
+    test('By default, a new adapter instance is returned each time', async () => {
+      container.bind<RepositoryPort>(TYPES.Repository, DependencyType.ADAPTER, Repository);
+
+      const repository_one = container.getInstance<RepositoryPort>(TYPES.Repository);
+      const repository_two = container.getInstance<RepositoryPort>(TYPES.Repository);
+
+      expect(repository_one !== repository_two).toBeTruthy();
+    });
+    test('Can make a singleton from an adapter using options', async () => {
+      const key = Symbol.for('SingltonRepository');
+      container.bind<RepositoryPort>(key, DependencyType.ADAPTER, Repository, { singlton: true });
+
+      const repository_one = container.getInstance<RepositoryPort>(key);
+      const repository_two = container.getInstance<RepositoryPort>(key);
+
+      expect(repository_one === repository_two).toBeTruthy();
+    });
+    test('Initializable service is singlton', async () => {
+      const key = Symbol.for('InitializableService');
+      container.bind<InitializableService>(key, DependencyType.ADAPTER, InitializableService, { init: true });
+
+      const initializableService_one = container.getInstance<InitializableService>(key);
+      const initializableService_two = container.getInstance<InitializableService>(key);
+
+      expect(initializableService_one === initializableService_two).toBeTruthy();
+    });
+    test('initializable services can be init', async () => {
+      container.bind<InitializableService>(key, DependencyType.ADAPTER, InitializableService, { init: true });
+
+      const [instance] = await container.initDependencies();
+      const init = instance.init as jest.Mock;
+
+      expect(init).toBeCalledTimes(1);
+    });
+    test('initializable services can be unbind', async () => {
+      const instanceOne = container.getInstance(key);
+      await container.unbind(key);
+      container.bind<InitializableService>(key, DependencyType.ADAPTER, InitializableService, { init: true });
+      const [instanceTwo] = await container.initDependencies();
+
+      expect(instanceOne !== instanceTwo).toBeTruthy();
     });
   });
 });
