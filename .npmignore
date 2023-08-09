@@ -1,2 +1,10 @@
 examples/
 src
+coverage
+.github
+.eslintrc.json
+.prettierrc.json
+.releaserc
+.commitlint.config.js
+.lefthook.yml
+tsconfig.json
