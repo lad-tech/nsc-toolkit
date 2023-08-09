@@ -1,10 +1,11 @@
 examples/
-src
-coverage
+src/
+coverage/
+dist/**/*.map
 .github
 .eslintrc.json
 .prettierrc.json
 .releaserc
-.commitlint.config.js
-.lefthook.yml
+commitlint.config.js
+lefthook.yml
 tsconfig.json
