@@ -118,8 +118,6 @@ describe('Successful injection of multi-level dependencies of different types', 
       const key = Symbol.for('MyAdapter');
       const key2 = Symbol.for('MyConstant');
       container.symbol(key).to.Adapter(InitializableService);
-      container.symbol(key).to.Service(InitializableService);
-
       container.symbol(key2).to.Constant({ obj: 'value' });
       const instance = container.getInstance<InitializableService>(key);
       const instance2 = container.getInstance<object>(key2);
