@@ -112,11 +112,17 @@ class Container {
         ) => {
           this.container.set(key, { type: DependencyType.ADAPTER, value, options });
         },
-        Singlton: <R extends Record<string, any>>(value: Adapter<R & InitializableService>) => {
+        Singlton: <R extends Record<string, any>>(value: Adapter<R>) => {
           this.container.set(key, { type: DependencyType.ADAPTER, value, options: { singlton: true } });
         },
         Constant: <R extends Record<string, any>>(value: R) => {
           this.container.set(key, { type: DependencyType.CONSTANT, value, options: { singlton: true } });
+        },
+        Initializable: <R extends Record<string, any>>(value: Adapter<R & InitializableService>) => {
+          this.container.set(key, { type: DependencyType.ADAPTER, value, options: { init: true } });
+        },
+        Service: <R extends Record<string, any>>(value: ClientService<R>) => {
+          this.container.set(key, { type: DependencyType.SERVICE, value });
         },
       },
     };
