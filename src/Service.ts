@@ -223,11 +223,6 @@ export class Service<E extends Emitter = Emitter> extends Root {
       });
     }
 
-    dependences['logger'] = new Logs.Logger({
-      location: `${this.serviceName}.${method.settings.action}`,
-      metadata: baggage,
-      outputFormatter: this.options.loggerOutputFormatter,
-    });
     return dependences;
   }
 
@@ -240,7 +235,6 @@ export class Service<E extends Emitter = Emitter> extends Root {
     for (const key in dependencies) {
       context[key] = dependencies[key];
     }
-    context['emitter'] = this.emitter;
     return context;
   }
 
@@ -398,6 +392,12 @@ export class Service<E extends Emitter = Emitter> extends Root {
     const context = this.getContext(baggage);
     const span = tracer.startSpan(subject, undefined, context);
 
+    const logger = new Logs.Logger({
+      location: `${this.serviceName}.${Method.settings.action}`,
+      metadata: baggage,
+      outputFormatter: this.options.loggerOutputFormatter,
+    });
+
     try {
       const requestedDependencies = this.createObjectWithDependencies(
         Method,
@@ -405,13 +405,20 @@ export class Service<E extends Emitter = Emitter> extends Root {
         this.getNextBaggage(span, baggage),
       );
       const context = this.createMethodContext(Method, requestedDependencies);
+
+      context['logger'] = logger;
+      context['emitter'] = this.emitter;
+
+      const response = await context.handler.call(context, payload);
       const result = {
-        payload: await context.handler.call(context, payload),
+        payload: response,
       };
+      logger.debug({ request: payload, response });
       this.finishSpan(span);
       return result;
     } catch (error) {
-      this.logger.error(error);
+      logger.debug({ request: payload });
+      logger.error(error);
       this.finishSpan(span, error);
       return this.buildErrorMessage(error);
     }
