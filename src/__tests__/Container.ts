@@ -1,12 +1,11 @@
-import { container, Service } from '..';
-import Logic from '../../examples/LogicService/index';
-import Math from '../../examples/MathService/index';
-import { service as logicService } from '../../examples/LogicService/service';
-import { DependencyType } from '..';
-import { RepositoryPort, ConfiguratorPort, StoragePort, MathPort } from '../../examples/LogicService/domain/ports';
-import { TYPES } from '../../examples/LogicService/inversion.types';
-import { InitializableService } from './fixtures/InitializableService';
+import { container, DependencyType, Service } from '..';
 import { Configurator, Repository } from '../../examples/LogicService/adapters';
+import { ConfiguratorPort, MathPort, RepositoryPort, StoragePort } from '../../examples/LogicService/domain/ports';
+import Logic from '../../examples/LogicService/index';
+import { TYPES } from '../../examples/LogicService/inversion.types';
+import { service as logicService } from '../../examples/LogicService/service';
+import Math from '../../examples/MathService/index';
+import { InitializableService } from './fixtures/InitializableService';
 
 describe('Successful injection of multi-level dependencies of different types', () => {
   const storage = { test: true };
@@ -114,6 +113,17 @@ describe('Successful injection of multi-level dependencies of different types', 
       const [instanceTwo] = await container.initDependencies();
 
       expect(instanceOne !== instanceTwo).toBeTruthy();
+    });
+    test('with symbol().to syntax', async () => {
+      const key = Symbol.for('MyAdapter');
+      const key2 = Symbol.for('MyConstant');
+      container.symbol(key).to.Adapter(InitializableService);
+      container.symbol(key2).to.Constant({ obj: 'value' });
+      const instance = container.getInstance<InitializableService>(key);
+      const instance2 = container.getInstance<object>(key2);
+
+      expect(instance instanceof InitializableService).toEqual(true);
+      expect(instance2).toEqual({ obj: 'value' });
     });
   });
 });
