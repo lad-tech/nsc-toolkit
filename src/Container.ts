@@ -1,4 +1,4 @@
-import { DependencyType, ClientService, dependencyStorageMetaKey, InitializableService } from '.';
+import { ClientService, dependencyStorageMetaKey, DependencyType, InitializableService } from '.';
 
 type Constant = Record<string, any>;
 
@@ -101,6 +101,31 @@ class Container {
     options?: AdapterOptions,
   ) {
     this.container.set(key, { type, value, options });
+  }
+
+  public symbol(key: symbol) {
+    return {
+      to: {
+        Adapter: <R extends Record<string, any>>(
+          value: Adapter<R & InitializableService>,
+          options?: AdapterOptions,
+        ) => {
+          this.container.set(key, { type: DependencyType.ADAPTER, value, options });
+        },
+        Singlton: <R extends Record<string, any>>(value: Adapter<R>) => {
+          this.container.set(key, { type: DependencyType.ADAPTER, value, options: { singlton: true } });
+        },
+        Constant: <R extends Record<string, any>>(value: R) => {
+          this.container.set(key, { type: DependencyType.CONSTANT, value, options: { singlton: true } });
+        },
+        Initializable: <R extends Record<string, any>>(value: Adapter<R & InitializableService>) => {
+          this.container.set(key, { type: DependencyType.ADAPTER, value, options: { init: true } });
+        },
+        Service: <R extends Record<string, any>>(value: ClientService<R>) => {
+          this.container.set(key, { type: DependencyType.SERVICE, value });
+        },
+      },
+    };
   }
 
   public async unbind(key: symbol) {
