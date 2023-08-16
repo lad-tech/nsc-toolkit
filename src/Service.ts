@@ -169,6 +169,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
     );
 
     if (dependencyStorage && dependencyStorage.size) {
+      // for constructor
       dependencyStorage.forEach((dependencyKey, propertyName) => {
         if (Array.isArray(dependencyKey)) {
           if (propertyName === ConstructorDependencyKey) {
