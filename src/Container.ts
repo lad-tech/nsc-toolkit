@@ -107,7 +107,7 @@ class Container {
     return {
       to: {
         Adapter: <R extends Record<string, any>>(
-          value: Adapter<R & InitializableService>,
+          value: Adapter<R> | Adapter<R & InitializableService>,
           options?: AdapterOptions,
         ) => {
           this.container.set(key, { type: DependencyType.ADAPTER, value, options });
@@ -183,6 +183,7 @@ class Container {
         const instance = this.getInstance<InitializableService>(key);
         await instance?.init();
         initialized.push(instance!);
+        this.singltons.set(key, { value: instance, init: dependency.options?.init });
       }
     }
     return initialized;
