@@ -194,14 +194,14 @@ export class Service<E extends Emitter = Emitter> extends Root {
           return;
         }
 
-        const { dependency, constructor } = container.get(dependencyKey);
+        const { dependency } = container.get(dependencyKey);
 
         if (dependency.type === DependencyType.SERVICE) {
           services.set(propertyName, dependency.value as Dependency);
         }
 
         if (dependency.type === DependencyType.ADAPTER) {
-          instances.set(propertyName, new (dependency.value as Adapter)(...constructor) as Instance);
+          instances.set(propertyName, container.getInstance(dependencyKey));
         }
 
         if (dependency.type === DependencyType.CONSTANT) {
