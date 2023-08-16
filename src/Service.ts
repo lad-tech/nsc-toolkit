@@ -173,7 +173,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
         if (Array.isArray(dependencyKey)) {
           if (propertyName === ConstructorDependencyKey) {
             dependencyKey.forEach((item, index) => {
-              const { dependency, constructor } = container.get(item);
+              const { dependency } = container.get(item);
               if (dependency.type === DependencyType.SERVICE) {
                 dependences[ConstructorDependencyKey][index] = new (dependency.value as Dependency)(
                   this.broker,
@@ -182,7 +182,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
                 );
               }
               if (dependency.type === DependencyType.ADAPTER) {
-                const instance = new (dependency.value as Adapter)(...constructor);
+                const instance = container.getInstance(item);
                 const trap = this.getTrap(instance, tracer, baggage);
                 dependences[ConstructorDependencyKey][index] = new Proxy(instance, trap);
               }
