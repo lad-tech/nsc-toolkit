@@ -206,7 +206,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
         }
 
         if (dependency.type === DependencyType.CONSTANT) {
-          dependences[propertyName] = dependency;
+          dependences[propertyName] = dependency.value;
         }
       });
     }
