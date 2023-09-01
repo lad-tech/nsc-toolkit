@@ -187,7 +187,7 @@ export class Client<E extends Emitter = Emitter> extends Root {
         : await this.makeBrokerRequest(subject, message, timeout);
 
       if (result.error) {
-        throw new Error(result.error.message);
+        throw new Error(result.error.message ?? result.error);
       }
 
       if (options?.runTimeValidation?.response && response) {
