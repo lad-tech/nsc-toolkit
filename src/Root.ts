@@ -63,7 +63,7 @@ export class Root {
     if (error instanceof Error) {
       message = error.message;
     } else {
-      message = error;
+      message = JSON.stringify(error);
     }
     return {
       payload: null,

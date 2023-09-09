@@ -419,10 +419,20 @@ export class Service<E extends Emitter = Emitter> extends Root {
       return result;
     } catch (error) {
       logger.debug({ request: payload });
-      logger.error(error);
+      logger.error(this.createErrorMessageForLogger(error));
       this.finishSpan(span, error);
       return this.buildErrorMessage(error);
     }
+  }
+
+  /**
+   * Make error object if error instance of Error object for logger
+   */
+  private createErrorMessageForLogger(error: any) {
+    if (error instanceof Error) {
+      return { name: error.name, message: error.message, stack: error.stack };
+    }
+    return { message: JSON.stringify(error) };
   }
 
   /**
