@@ -58,12 +58,14 @@ export class Root {
     }
   }
 
-  protected buildErrorMessage(error: string | Error, code?: number) {
+  protected buildErrorMessage(error: string | Error | Record<any, any>, code?: number) {
     let message = '';
     if (error instanceof Error) {
       message = error.message;
-    } else {
+    } else if (typeof error === 'string') {
       message = error;
+    } else {
+      message = JSON.stringify(error);
     }
     return {
       payload: null,
