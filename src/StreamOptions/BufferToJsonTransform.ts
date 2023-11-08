@@ -1,7 +1,7 @@
 import { Logs } from '@lad-tech/toolbelt';
 import { Transform, TransformCallback, TransformOptions } from 'stream';
 
-export class BufferToJsonTransform<T> extends Transform {
+export class BufferToJsonTransform<T = any> extends Transform {
   private head: Buffer = Buffer.from('');
   private static errors = {
     CONVERSION_ERROR: 'Не удалось преобразовать данные',
@@ -12,26 +12,18 @@ export class BufferToJsonTransform<T> extends Transform {
     this.logger = options.logger;
   }
   async _transform(tail: Buffer, _: BufferEncoding, cb: TransformCallback) {
-    let jsonData: T | undefined;
     try {
-      try {
-        tail = Buffer.concat([this.head, Buffer.from(tail)]);
-        jsonData = JSON.parse(tail.toString()) as T;
-      } catch (err) {
-        this.head = Buffer.from(tail);
-        cb();
-      }
-
-      if (jsonData) {
-        cb(null, jsonData);
-      }
+      tail = Buffer.concat([this.head, Buffer.from(tail)]);
+      const jsonData = JSON.parse(tail.toString()) as T;
+      cb(null, jsonData);
     } catch (error) {
-      this.logger.error(BufferToJsonTransform.errors.CONVERSION_ERROR, tail.toString());
-      if (error instanceof Error) {
-        cb(error);
-      } else {
-        cb(new Error(BufferToJsonTransform.errors.CONVERSION_ERROR));
+      if (error instanceof SyntaxError) {
+        this.head = Buffer.from(tail);
+        this.logger.error(BufferToJsonTransform.errors.CONVERSION_ERROR, tail.toString());
+        cb();
+        return;
       }
+      cb(error);
     }
   }
 }
