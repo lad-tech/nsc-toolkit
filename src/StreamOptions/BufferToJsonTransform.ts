@@ -12,18 +12,18 @@ export class BufferToJsonTransform<T> extends Transform {
     this.logger = options.logger;
   }
   async _transform(tail: Buffer, _: BufferEncoding, cb: TransformCallback) {
-    let partnerParams: T | undefined;
+    let jsonData: T | undefined;
     try {
       try {
         tail = Buffer.concat([this.head, Buffer.from(tail)]);
-        partnerParams = JSON.parse(tail.toString());
+        jsonData = JSON.parse(tail.toString()) as T;
       } catch (err) {
         this.head = Buffer.from(tail);
         cb();
       }
 
-      if (partnerParams) {
-        cb(null, partnerParams);
+      if (jsonData) {
+        cb(null, jsonData);
       }
     } catch (error) {
       this.logger.error(BufferToJsonTransform.errors.CONVERSION_ERROR, tail.toString());
