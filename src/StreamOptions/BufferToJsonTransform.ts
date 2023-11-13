@@ -16,6 +16,7 @@ export class BufferToJsonTransform<T = any> extends Transform {
       tail = Buffer.concat([this.head, Buffer.from(tail)]);
       const jsonData = JSON.parse(tail.toString()) as T;
       cb(null, jsonData);
+      this.head = Buffer.from('');
     } catch (error) {
       if (error instanceof SyntaxError) {
         this.head = Buffer.from(tail);
