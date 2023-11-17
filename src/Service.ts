@@ -1,5 +1,5 @@
 import { Root } from './Root';
-import { JSONCodec, Subscription } from 'nats';
+import { JSONCodec, Subscription, DebugEvents, Events } from 'nats';
 import {
   Message,
   Emitter,
@@ -9,7 +9,6 @@ import {
   ExternalBaggage,
   ClientService,
   DependencyType,
-  Adapter,
   container,
   InstanceContainer,
   ServiceContainer,
@@ -587,10 +586,23 @@ export class Service<E extends Emitter = Emitter> extends Root {
   }
 
   /**
+   * Type guard for NATS debug event
+   */
+  private isNATSDebugEvent(event: Events | DebugEvents): event is DebugEvents {
+    return (
+      event === DebugEvents.PingTimer || event === DebugEvents.Reconnecting || event === DebugEvents.StaleConnection
+    );
+  }
+
+  /**
    * Logs events from the broker
    */
   private async watchBrokerEvents() {
     for await (const event of this.broker.status()) {
+      if (this.isNATSDebugEvent(event.type)) {
+        this.logger.debug(`${event.type}: ${event.data}`);
+        return;
+      }
       this.logger.warn(`${event.type}: ${event.data}`);
     }
   }
