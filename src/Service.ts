@@ -586,7 +586,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
   }
 
   /**
-   * Type guard fro NATS debug event
+   * Type guard for NATS debug event
    */
   private isNATSDebugEvent(event: Events | DebugEvents): event is DebugEvents {
     return (
