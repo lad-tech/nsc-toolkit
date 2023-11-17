@@ -55,7 +55,7 @@ export class Client<E extends Emitter = Emitter> extends Root {
         data = JSONCodec<unknown>().decode(event.data);
       } catch (error) {
         data = StringCodec().decode(event.data);
-          }
+      }
       const message: Partial<EmitterStreamEvent<any>> = { data };
 
       if (this.isJsMessage(event)) {
@@ -261,7 +261,7 @@ export class Client<E extends Emitter = Emitter> extends Root {
           timeout,
         },
         async response => {
-          if (options?.useStream?.response) {
+          if (options?.useStream?.response && response.statusCode !== 500) {
             resolve({ payload: response });
             return;
           }

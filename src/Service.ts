@@ -291,9 +291,11 @@ export class Service<E extends Emitter = Emitter> extends Root {
   }
 
   private makeHttpSingleResponse(response: ServerResponse, data: Message) {
+    const isError = !data.payload && data.error && data.error.message;
     const responseData = JSON.stringify(data);
+
     response
-      .writeHead(200, {
+      .writeHead(isError ? 500 : 200, {
         'Content-Length': Buffer.byteLength(responseData),
         'Content-Type': 'application/json',
       })
