@@ -85,9 +85,19 @@ export class Service<E extends Emitter = Emitter> extends Root {
         [SemanticResourceAttributes.SERVICE_NAME]: this.options.name,
       }),
     });
-    const exporter = new JaegerExporter({
-      endpoint: this.getSettingFromEnv('OTEL_AGENT', false),
-    });
+
+    let host: string | undefined;
+    let port: number | undefined;
+
+    const agentUrl = this.getSettingFromEnv('OTEL_AGENT', false);
+
+    if (agentUrl) {
+      const agent = agentUrl.split(':');
+      host = agent[0];
+      port = parseInt(agent[1]) || undefined;
+    }
+
+    const exporter = new JaegerExporter({ host, port });
     provider.addSpanProcessor(new SimpleSpanProcessor(exporter));
     provider.register();
   }
