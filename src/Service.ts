@@ -580,7 +580,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
     }
     this.httpProbServer = http.createServer();
     this.httpProbServer.on('request', (request, response) => {
-      if (request.url === 'k/healthchec' && request.method === 'GET') {
+      if (request.url === '/healthcheck' && request.method === 'GET') {
         response.writeHead(200).end();
         return;
       }
