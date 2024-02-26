@@ -89,7 +89,7 @@ describe('Testing Root class methods', () => {
     jest.setSystemTime(0);
 
     const ENV = process.env;
-    const DEFAULT_REPONSE_TIMEOUT = 20;
+    const DEFAULT_REPONSE_TIMEOUT = 20_000;
 
     beforeAll(() => {
       jest.resetModules();
@@ -103,18 +103,18 @@ describe('Testing Root class methods', () => {
     test('Timeout timestamp is correctly generated. The timeout in seconds is taken from the environment variable', () => {
       const result = root.getExpiredProxy();
 
-      expect(result).toBe(DEFAULT_REPONSE_TIMEOUT * 1000);
+      expect(result).toBe(DEFAULT_REPONSE_TIMEOUT);
     });
 
     test('Timeout timestamp is correctly generated. The timeout in seconds is taken from the passed value', () => {
-      const customTimeout = 30;
+      const customTimeout = 30_000;
       const result = root.getExpiredProxy(undefined, customTimeout);
 
-      expect(result).toBe(customTimeout * 1000);
+      expect(result).toBe(customTimeout);
     });
 
     test('Timeout timestamp is correctly generated. If the timeout is already set, it remains unchanged', () => {
-      const timeout = 40000;
+      const timeout = 40_000;
       const result = root.getExpiredProxy(timeout);
 
       expect(result).toBe(timeout);

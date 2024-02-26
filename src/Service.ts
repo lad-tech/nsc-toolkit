@@ -1,5 +1,5 @@
 import { Root } from './Root';
-import { JSONCodec, Subscription } from 'nats';
+import { JSONCodec, Subscription, DebugEvents, Events } from 'nats';
 import {
   Message,
   Emitter,
@@ -9,7 +9,6 @@ import {
   ExternalBaggage,
   ClientService,
   DependencyType,
-  Adapter,
   container,
   InstanceContainer,
   ServiceContainer,
@@ -86,9 +85,19 @@ export class Service<E extends Emitter = Emitter> extends Root {
         [SemanticResourceAttributes.SERVICE_NAME]: this.options.name,
       }),
     });
-    const exporter = new JaegerExporter({
-      endpoint: this.getSettingFromEnv('OTEL_AGENT', false),
-    });
+
+    let host: string | undefined;
+    let port: number | undefined;
+
+    const agentUrl = this.getSettingFromEnv('OTEL_AGENT', false);
+
+    if (agentUrl) {
+      const agent = agentUrl.split(':');
+      host = agent[0];
+      port = parseInt(agent[1]) || undefined;
+    }
+
+    const exporter = new JaegerExporter({ host, port });
     provider.addSpanProcessor(new SimpleSpanProcessor(exporter));
     provider.register();
   }
@@ -291,9 +300,11 @@ export class Service<E extends Emitter = Emitter> extends Root {
   }
 
   private makeHttpSingleResponse(response: ServerResponse, data: Message) {
+    const isError = !data.payload && data.error && data.error.message;
     const responseData = JSON.stringify(data);
+
     response
-      .writeHead(200, {
+      .writeHead(isError ? 500 : 200, {
         'Content-Length': Buffer.byteLength(responseData),
         'Content-Type': 'application/json',
       })
@@ -585,10 +596,23 @@ export class Service<E extends Emitter = Emitter> extends Root {
   }
 
   /**
+   * Type guard for NATS debug event
+   */
+  private isNATSDebugEvent(event: Events | DebugEvents): event is DebugEvents {
+    return (
+      event === DebugEvents.PingTimer || event === DebugEvents.Reconnecting || event === DebugEvents.StaleConnection
+    );
+  }
+
+  /**
    * Logs events from the broker
    */
   private async watchBrokerEvents() {
     for await (const event of this.broker.status()) {
+      if (this.isNATSDebugEvent(event.type)) {
+        this.logger.debug(`${event.type}: ${event.data}`);
+        return;
+      }
       this.logger.warn(`${event.type}: ${event.data}`);
     }
   }

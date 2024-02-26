@@ -49,7 +49,11 @@ export class Root {
     try {
       if (!expired) {
         const timeout = ownTimeout || this.castToNumber(this.getSettingFromEnv('DEFAULT_REPONSE_TIMEOUT'));
-        return Date.now() + timeout * 1000;
+        return Date.now() + timeout;
+      }
+      if (ownTimeout) {
+        const customExpired = Date.now() + ownTimeout;
+        return Math.min(customExpired, expired);
       }
       return expired;
     } catch (error) {
