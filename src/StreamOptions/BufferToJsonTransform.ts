@@ -6,8 +6,8 @@ export class BufferToJsonTransform<T = any> extends Transform {
   private static errors = {
     CONVERSION_ERROR: 'Не удалось преобразовать данные',
   };
-  private logger: Logs.Logger;
-  constructor(options: TransformOptions & { logger: Logs.Logger }) {
+  private logger?: Logs.Logger;
+  constructor(options: TransformOptions & { logger?: Logs.Logger }) {
     super({ objectMode: true, highWaterMark: 10, ...options });
     this.logger = options.logger;
   }
@@ -20,7 +20,7 @@ export class BufferToJsonTransform<T = any> extends Transform {
     } catch (error) {
       if (error instanceof SyntaxError) {
         this.head = Buffer.from(tail);
-        this.logger.error(BufferToJsonTransform.errors.CONVERSION_ERROR, tail.toString());
+        this.logger?.error(BufferToJsonTransform.errors.CONVERSION_ERROR, tail.toString());
         cb();
         return;
       }
