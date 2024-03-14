@@ -17,7 +17,8 @@ export class StreamManager extends Root {
   private readonly TWO_WEEKS_IN_SECOND = 1209600;
   private readonly ONE_DAY_IN_SECOND = 86400;
 
-  private readonly defaultStreamOption: Omit<Required<StreamAction>, 'action'> = {
+  private readonly defaultStreamOption: Omit<Required<StreamAction>, 'action' | 'maxBytes'> &
+    Pick<StreamAction, 'maxBytes'> = {
     storage: 'file',
     retentionPolicy: 'limits',
     discardPolicy: 'old',
@@ -49,6 +50,7 @@ export class StreamManager extends Root {
         num_replicas: options.replication || this.defaultStreamOption.replication,
         discard: (options.discardPolicy || this.defaultStreamOption.discardPolicy) as DiscardPolicy,
         max_age: this.convertSecondsToNanoseconds(options.messageTTL || this.defaultStreamOption.messageTTL),
+        max_bytes: options.maxBytes,
         duplicate_window: this.convertSecondsToNanoseconds(
           options.duplicateTrackingTime || this.defaultStreamOption.duplicateTrackingTime,
         ),
