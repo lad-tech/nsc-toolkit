@@ -108,6 +108,7 @@ export interface StreamAction {
   retentionPolicy?: 'limits' | 'interest' | 'workQueue' | string;
   discardPolicy?: 'old' | 'new' | string;
   messageTTL?: number; // in seconds
+  maxBytes?: number;
   duplicateTrackingTime?: number; // in seconds
   replication?: number;
   rollUps?: boolean;
