@@ -392,11 +392,7 @@ class Service extends Root_1.Root {
                         message.respond(this.buildMessage(result));
                     }
                     catch (error) {
-                        message.respond(this.buildMessage({
-                            error: error.message,
-                            ...('code' in error ? { code: error.code } : {}),
-                            ...('statusCode' in error ? { statusCode: error.statusCode } : {}),
-                        }));
+                        message.respond(this.buildMessage({ error: error.message }));
                     }
                 }
             });
@@ -552,6 +548,7 @@ class Service extends Root_1.Root {
                 resolve(address.port);
             });
         });
+        console.log('upHTTPServer, addressm port', this.ipAddress, this.httpPort);
         return this.httpServer;
     }
     getMyIpV4() {
@@ -561,7 +558,7 @@ class Service extends Root_1.Root {
                 return ip;
             }
             const networkInterface = networkInterfaces[key];
-            const externalIpV4Interface = networkInterface === null || networkInterface === void 0 ? void 0 : networkInterface.find(item => !item.internal && item.family === 'IPv4');
+            const externalIpV4Interface = networkInterface === null || networkInterface === void 0 ? void 0 : networkInterface.find(item => item.internal && item.family === 'IPv4');
             if (externalIpV4Interface) {
                 return externalIpV4Interface.address;
             }
