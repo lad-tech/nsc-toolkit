@@ -1,0 +1,1 @@
+{"version":3,"file":"JsonToBufferTransform.js","sourceRoot":"","sources":["../../src/StreamOptions/JsonToBufferTransform.ts"],"names":[],"mappings":";;;AAAA,mCAAsD;AAEtD,MAAa,qBAAyB,SAAQ,kBAAS;IACrD,UAAU,CAAC,KAAQ,EAAE,QAAwB,EAAE,EAAqB;QAClE,EAAE,CAAC,IAAI,EAAE,MAAM,CAAC,IAAI,CAAC,IAAI,CAAC,SAAS,CAAC,KAAK,CAAC,CAAC,CAAC,CAAC;IAC/C,CAAC;CACF;AAJD,sDAIC"}

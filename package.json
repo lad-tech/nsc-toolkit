@@ -2,7 +2,7 @@
   "name": "@lad-tech/nsc-toolkit",
   "version": "1.0.0",
   "description": "Toolkit for create microservices around NATS",
-  "main": "src/index.ts",
+  "main": "dist/index.js",
   "types": "./dist/types/index.d.ts",
   "scripts": {
     "build": "rm -rf ./dist && tsc",
