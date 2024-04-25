@@ -643,7 +643,6 @@ export class Service<E extends Emitter = Emitter> extends Root {
         resolve(address.port);
       });
     });
-    console.log('upHTTPServer, addressm port', this.ipAddress, this.httpPort);
     return this.httpServer!;
   }
 
@@ -654,7 +653,14 @@ export class Service<E extends Emitter = Emitter> extends Root {
         return ip;
       }
       const networkInterface = networkInterfaces[key];
-      const externalIpV4Interface = networkInterface?.find(item => item.internal && item.family === 'IPv4');
+      const externalIpV4Interface = networkInterface?.find(item => {
+        if (this.broker.isUnion && item.internal) {
+          return true;
+        }
+        if (!item.internal && item.family === 'IPv4') {
+          return true;
+        }
+      });
       if (externalIpV4Interface) {
         return externalIpV4Interface.address;
       }
