@@ -92,7 +92,7 @@ export class StreamManager extends Root {
       .deliverTo(createInbox());
 
     if (setting?.maxAckWaiting) {
-      options.maxWaiting(setting.maxAckWaiting);
+      options.ackWait(setting.maxAckWaiting);
     }
 
     if (setting?.queue) {
