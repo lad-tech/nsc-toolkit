@@ -91,6 +91,10 @@ export class StreamManager extends Root {
       .maxAckPending(setting?.maxPending || 10)
       .deliverTo(createInbox());
 
+    if (setting?.maxAckWaiting) {
+      options.maxWaiting(setting.maxAckWaiting);
+    }
+
     if (setting?.queue) {
       options.queue(setting.queue);
     }

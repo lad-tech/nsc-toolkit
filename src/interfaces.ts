@@ -84,6 +84,7 @@ export interface GetListenerOptions {
   queue?: string;
   deliver?: 'all' | 'new';
   maxPending?: number;
+  maxAckWaiting?: number
 }
 
 export interface StreamManagerParam {
