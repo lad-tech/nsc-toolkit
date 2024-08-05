@@ -22,7 +22,15 @@ const logger = new Logs.Logger({ location: 'HttpGate' });
 const upHttpGate = async (service: Service) => {
   const mathService = service.buildService(MathService);
 
-  const mathEmmiter = mathService.getListener(SERVICE_NAME, { deliver: 'all' });
+  const mathEmmiter = mathService.getListener(SERVICE_NAME, { deliver: 'all', queue: 'httpGate' });
+  const matchBatchEmitter = mathService.getListener(`${SERVICE_NAME}:Batch`, {
+    deliver: 'all',
+    batch: true,
+    maxPullRequestExpires: 5_000,
+    maxPullRequestBatch: 19,
+    queue: 'httpGate',
+    maxPending: 1000,
+  });
 
   mathEmmiter.on('Elapsed', message => {
     logger.info('Get new event "Elapsed": ', message.data);
@@ -31,6 +39,14 @@ const upHttpGate = async (service: Service) => {
 
   mathEmmiter.on('Notify', message => {
     logger.info('Get new event "Notify": ', message.data);
+  });
+
+  matchBatchEmitter.on('FibonacciNumber', messages => {
+    logger.info(
+      'Get new event "FibonacciNumber": ',
+      messages.map(message => message.data),
+    );
+    messages.forEach(message => message.ack());
   });
 
   const fastify = Fastify();

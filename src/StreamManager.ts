@@ -1,4 +1,4 @@
-import { StreamAction, StreamManagerParam, GetListenerOptions } from '.';
+import { StreamAction, StreamManagerParam, GetListenerOptions, GetBatchListenerOptions } from '.';
 import {
   JetStreamManager,
   RetentionPolicy,
@@ -8,14 +8,20 @@ import {
   JetStreamSubscription,
   consumerOpts,
   createInbox,
+  JetStreamPullSubscription,
+  Subscription,
 } from 'nats';
 import { Root } from './Root';
+import { isConsumerOptsBuilder } from 'nats/lib/nats-base-client/jsconsumeropts';
+import { StreamFetcher } from './StreamFetcher';
 
 export class StreamManager extends Root {
   private readonly STAR_WILDCARD = '*';
   private readonly GREATER_WILDCARD = '>';
   private readonly TWO_WEEKS_IN_SECOND = 1209600;
   private readonly ONE_DAY_IN_SECOND = 86400;
+
+  static readonly DEFAUL_BATCH_SIZE_FOR_PULL = 100;
 
   private readonly defaultStreamOption: Omit<Required<StreamAction>, 'action' | 'maxBytes'> &
     Pick<StreamAction, 'maxBytes'> = {
@@ -32,6 +38,16 @@ export class StreamManager extends Root {
 
   constructor(private param: StreamManagerParam) {
     super(param.broker, param.outputFormatter);
+  }
+
+  static isPullConsumerOptions(
+    setting?: GetListenerOptions | GetBatchListenerOptions,
+  ): setting is GetBatchListenerOptions {
+    return !!(setting as GetBatchListenerOptions)?.batch;
+  }
+
+  static isStreamFetcher(consumer?: JetStreamSubscription | StreamFetcher | Subscription): consumer is StreamFetcher {
+    return !!(consumer as StreamFetcher)?.fetch;
   }
 
   public async createStreams() {
@@ -76,20 +92,48 @@ export class StreamManager extends Root {
     serviceNameFrom: string,
     eventName: string,
     setting?: GetListenerOptions,
-  ): Promise<JetStreamSubscription> {
+  ): Promise<JetStreamSubscription>;
+  public async createConsumer(
+    serviceNameFrom: string,
+    eventName: string,
+    setting?: GetBatchListenerOptions,
+  ): Promise<StreamFetcher>;
+  public async createConsumer(
+    serviceNameFrom: string,
+    eventName: string,
+    setting?: GetListenerOptions | GetBatchListenerOptions,
+  ): Promise<JetStreamSubscription | StreamFetcher> {
     const consumerName = this.capitalizeFirstLetter(serviceNameFrom) + this.capitalizeFirstLetter(eventName);
-
     const prefix = this.param.options.prefix;
-    const subjeсt = `${this.param.serviceName}.${prefix}.${eventName}`;
+    const subject = `${this.param.serviceName}.${prefix}.${eventName}`;
+
+    if (!this.jsm) {
+      this.jsm = await this.param.broker.jetstreamManager();
+    }
 
     const options = consumerOpts();
+    const isPullConsumer = StreamManager.isPullConsumerOptions(setting);
 
     options
       .durable(consumerName)
       .manualAck()
       .ackExplicit()
-      .maxAckPending(setting?.maxPending || 10)
-      .deliverTo(createInbox());
+      .filterSubject(subject)
+      .maxAckPending(setting?.maxPending || 10);
+
+    if (!isPullConsumer) {
+      options.deliverTo(createInbox());
+    }
+
+    if (isPullConsumer) {
+      if (setting.maxPullRequestExpires) {
+        options.maxPullRequestExpires(setting.maxPullRequestExpires);
+      }
+
+      if (setting.maxPullRequestBatch) {
+        options.maxPullBatch(setting.maxPullRequestBatch);
+      }
+    }
 
     if (setting?.maxAckWaiting) {
       options.ackWait(setting.maxAckWaiting);
@@ -108,7 +152,21 @@ export class StreamManager extends Root {
       }
     }
 
-    return this.broker.jetstream().subscribe(subjeсt, options);
+    const streamName = await this.jsm.streams.find(subject);
+    if (!streamName) {
+      throw new Error(`Error creating consumer ${consumerName}. Stream for subject ${subject} not found`);
+    }
+
+    if (isConsumerOptsBuilder(options)) {
+      await this.jsm.consumers.add(streamName, options.config);
+    }
+
+    return isPullConsumer
+      ? new StreamFetcher(this.broker.jetstream(), streamName, consumerName, {
+          batchSize: setting.maxPullRequestBatch,
+          batchTimeout: setting.maxPullRequestExpires,
+        })
+      : this.broker.jetstream().subscribe(subject, options);
   }
 
   private getStreamName(eventName: string) {
