@@ -7,7 +7,7 @@
       "description": "Weird sum logic. Gets two numbers and adds them. The result is a length Fibonacci sequence. Add the sequence and get the result",
       "options": {
         "cache": 5,
-        "timeout": 3000,
+        "timeout": 1200000,
         "runTimeValidation": {
           "request": true
         }

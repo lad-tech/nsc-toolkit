@@ -9,7 +9,7 @@
       "request": {
         "type": "object",
         "properties": {
-          "a":{
+          "a": {
             "$ref": "TestService#/definitions/numerable"
           },
           "b": {
@@ -90,6 +90,20 @@
             "method": { "type": "string" }
           },
           "required": ["method"]
+        }
+      },
+      "FibonacciNumber": {
+        "action": "fibonacciNumber",
+        "options": {
+          "stream": true
+        },
+        "description": "New generated Fibonacci number",
+        "event": {
+          "type": "object",
+          "properties": {
+            "number": { "type": "number" }
+          },
+          "required": ["number"]
         }
       }
     },

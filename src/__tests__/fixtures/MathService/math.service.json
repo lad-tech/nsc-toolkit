@@ -104,6 +104,20 @@
           },
           "required": ["method"]
         }
+      },
+      "FibonacciNumber": {
+        "action": "fibonacciNumber",
+        "options": {
+          "stream": true
+        },
+        "description": "New generated Fibonacci number",
+        "event": {
+          "type": "object",
+          "properties": {
+            "number": { "type": "number" }
+          },
+          "required": ["number"]
+        }
       }
     },
     "streamOptions": {
