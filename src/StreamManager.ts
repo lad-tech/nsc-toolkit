@@ -8,7 +8,6 @@ import {
   JetStreamSubscription,
   consumerOpts,
   createInbox,
-  JetStreamPullSubscription,
   Subscription,
 } from 'nats';
 import { Root } from './Root';
@@ -20,8 +19,6 @@ export class StreamManager extends Root {
   private readonly GREATER_WILDCARD = '>';
   private readonly TWO_WEEKS_IN_SECOND = 1209600;
   private readonly ONE_DAY_IN_SECOND = 86400;
-
-  static readonly DEFAUL_BATCH_SIZE_FOR_PULL = 100;
 
   private readonly defaultStreamOption: Omit<Required<StreamAction>, 'action' | 'maxBytes'> &
     Pick<StreamAction, 'maxBytes'> = {
