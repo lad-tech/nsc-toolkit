@@ -162,7 +162,8 @@ export class Client<E extends Emitter = Emitter> extends Root {
 
       const { spanId, traceId, traceFlags } = span.spanContext();
       const expired = this.getExpired(this.baggage?.expired, options?.timeout);
-      const message: Message = { payload: data, baggage: { expired, traceId, spanId, traceFlags } };
+      const requestId = this.baggage?.requestId;
+      const message: Message = { payload: data, baggage: { expired, traceId, spanId, traceFlags, requestId } };
       const timeout = expired - Date.now();
 
       if (timeout <= 0) {
@@ -298,12 +299,23 @@ export class Client<E extends Emitter = Emitter> extends Root {
     if (!baggage) {
       return {};
     }
-    return {
-      'nsc-expired': baggage.expired,
-      'nsc-trace-id': baggage.traceId,
-      'nsc-span-id': baggage.spanId,
-      'nsc-trace-flags': baggage.traceFlags,
-    };
+    const headers: ExternalBaggage = {};
+    if (baggage.expired) {
+      headers['nsc-expired'] = baggage.expired;
+    }
+    if (baggage.requestId) {
+      headers['x-request-id'] = baggage.requestId;
+    }
+    if (baggage.traceId) {
+      headers['nsc-trace-id'] = baggage.traceId;
+    }
+    if (baggage.spanId) {
+      headers['nsc-span-id'] = baggage.spanId;
+    }
+    if (baggage.traceFlags) {
+      headers['nsc-trace-flags'] = baggage.traceFlags;
+    }
+    return headers;
   }
 
   private isJsMessage(message: JsMsg | Msg): message is JsMsg {

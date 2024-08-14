@@ -251,9 +251,16 @@ export class Service<E extends Emitter = Emitter> extends Root {
   /**
    * Create Baggage from span. Expired one-on-one business logic call
    */
-  private getNextBaggage(span: Span, baggage?: Baggage) {
+  private getNextBaggage(span: Span, baggage?: Pick<Baggage, 'expired' | 'requestId'>) {
     const { traceId, spanId, traceFlags } = span.spanContext();
-    return { traceId, spanId, traceFlags, expired: baggage?.expired };
+    return { traceId, spanId, traceFlags, expired: baggage?.expired, requestId: baggage?.requestId };
+  }
+
+  /**
+   * Guard for determine whether baggage contains trace information
+   */
+  private isBaggageContainTrace(params: Partial<Baggage> | undefined): params is Baggage {
+    return !!params && !!((params as Baggage).traceId && (params as Baggage).spanId && (params as Baggage).traceFlags);
   }
 
   /**
@@ -262,7 +269,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
   public getRootBaggage(subject: string, headers?: ExternalBaggage, ownTimeout?: number) {
     const baggage = headers ? this.getBaggageFromHTTPHeader(headers) : undefined;
     const tracer = trace.getTracer('');
-    const context = this.getContext(baggage);
+    const context = this.getContext(this.isBaggageContainTrace(baggage) ? baggage : undefined);
     const span = tracer.startSpan(subject, undefined, context);
     const newBaggage = this.getNextBaggage(span, baggage);
     this.rootSpans.set(newBaggage.traceId, span);
@@ -397,11 +404,11 @@ export class Service<E extends Emitter = Emitter> extends Root {
   /**
    * Run business logic for request
    */
-  private async handled(payload: unknown, Method: Method, baggage?: Baggage): Promise<Message> {
+  private async handled(payload: unknown, Method: Method, baggage?: Partial<Baggage>): Promise<Message> {
     const subject = `${this.serviceName}.${Method.settings.action}`;
     const tracer = trace.getTracer('');
 
-    const context = this.getContext(baggage);
+    const context = this.getContext(this.isBaggageContainTrace(baggage) ? baggage : undefined);
     const span = tracer.startSpan(subject, undefined, context);
 
     const logger = new Logs.Logger({
@@ -677,14 +684,17 @@ export class Service<E extends Emitter = Emitter> extends Root {
     const traceId = headers['nsc-trace-id'];
     const spanId = headers['nsc-span-id'];
     const traceFlags = headers['nsc-trace-flags'] ? +headers['nsc-trace-flags'] : undefined;
+    const requestId = headers['x-request-id'] ? String(headers['x-request-id']) : undefined;
+
     if (traceId && spanId && traceFlags) {
       return {
         traceId,
         spanId,
         traceFlags,
         expired,
+        requestId,
       };
     }
-    return undefined;
+    return { expired, requestId };
   }
 }
