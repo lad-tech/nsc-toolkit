@@ -40,6 +40,7 @@ export type Baggage = {
   traceId: string;
   spanId: string;
   traceFlags: number;
+  requestId?: string;
   expired?: number;
 };
 
@@ -48,6 +49,7 @@ export type ExternalBaggage = {
   'nsc-trace-id'?: string;
   'nsc-span-id'?: string;
   'nsc-trace-flags'?: number;
+  'x-request-id'?: string;
 };
 
 export interface Message<M = any> {
