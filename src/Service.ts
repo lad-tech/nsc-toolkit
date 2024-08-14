@@ -260,7 +260,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
    * Guard for determine whether baggage contains trace information
    */
   private isBaggageContainTrace(params: Partial<Baggage> | undefined): params is Baggage {
-    return !!((params as Baggage).traceId && (params as Baggage).spanId && (params as Baggage).traceFlags);
+    return !!params && !!((params as Baggage).traceId && (params as Baggage).spanId && (params as Baggage).traceFlags);
   }
 
   /**
