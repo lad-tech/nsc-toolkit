@@ -272,7 +272,8 @@ export class Client<E extends Emitter = Emitter> extends Root {
       const result = await this.broker.request(subject, Buffer.from(JSON.stringify(message)), { timeout });
       return JSONCodec<Message<any>>().decode(result.data);
     } catch (error) {
-      return this.buildErrorMessage(error);
+      const errorMessage = new Error(`${error?.message}. Subject: ${subject} `);
+      return this.buildErrorMessage(errorMessage);
     }
   }
 
@@ -318,13 +319,15 @@ export class Client<E extends Emitter = Emitter> extends Root {
           try {
             resolve(JSON.parse(responseDataString));
           } catch (error) {
-            resolve(this.buildErrorMessage(error));
+            const errorMessage = new Error(`${error?.message}. Subject: ${subject} `);
+            resolve(this.buildErrorMessage(errorMessage));
           }
         },
       );
 
       request.on('error', error => {
-        resolve(this.buildErrorMessage(error));
+        const errorMessage = new Error(`${error?.message}. Subject: ${subject} `);
+        resolve(this.buildErrorMessage(errorMessage));
       });
 
       if (this.isStream(message.payload)) {
