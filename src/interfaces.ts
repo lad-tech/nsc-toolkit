@@ -86,7 +86,13 @@ export interface GetListenerOptions {
   queue?: string;
   deliver?: 'all' | 'new';
   maxPending?: number;
-  maxAckWaiting?: number
+  maxAckWaiting?: number;
+}
+
+export interface GetBatchListenerOptions extends GetListenerOptions {
+  batch: true;
+  maxPullRequestBatch?: number;
+  maxPullRequestExpires?: number;
 }
 
 export interface StreamManagerParam {
@@ -155,6 +161,11 @@ export type EventHandler<P extends Record<string, any>> = (params: EmitterEvent<
 export interface Listener<E extends Emitter> {
   on<A extends keyof E>(action: A, handler: E[A]): void;
   off<A extends keyof E>(action: A, handler: E[A]): void;
+}
+
+export interface ListenerBatch<E extends Emitter> {
+  on<A extends keyof E>(action: A, handler: (params: Array<Parameters<E[A]>[0]>) => void): void;
+  off<A extends keyof E>(action: A, handler: (params: Array<Parameters<E[A]>[0]>) => void): void;
 }
 
 export interface HttpSettings {

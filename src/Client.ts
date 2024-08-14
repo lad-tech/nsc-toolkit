@@ -1,6 +1,14 @@
 import * as opentelemetry from '@opentelemetry/api';
 import Ajv from 'ajv';
-import { JetStreamSubscription, JsMsg, JSONCodec, Msg, Subscription, StringCodec } from 'nats';
+import {
+  JetStreamSubscription,
+  JsMsg,
+  JSONCodec,
+  Msg,
+  Subscription,
+  StringCodec,
+  JetStreamPullSubscription,
+} from 'nats';
 import { createHash } from 'node:crypto';
 import * as http from 'node:http';
 import { EventEmitter, Readable } from 'node:stream';
@@ -13,15 +21,18 @@ import {
   EmitterStreamEvent,
   Events,
   ExternalBaggage,
+  GetBatchListenerOptions,
   GetListenerOptions,
   HttpSettings,
   Listener,
+  ListenerBatch,
   Message,
   MethodOptions,
   MethodSettings,
 } from './interfaces';
 import { Root } from './Root';
 import { StreamManager } from './StreamManager';
+import { StreamFetcher } from './StreamFetcher';
 
 type RequestData = Record<string, unknown> | Readable;
 export class Client<E extends Emitter = Emitter> extends Root {
@@ -63,14 +74,41 @@ export class Client<E extends Emitter = Emitter> extends Root {
         message.nak = event.nak.bind(event);
       }
 
-      listener.emit(`${eventName as string}`, message);
+      listener.emit(eventName, message);
+    }
+  }
+
+  private async startBatchWatch(fetcher: StreamFetcher, listener: EventEmitter, eventName: string) {
+    while (true) {
+      const batch: Partial<EmitterStreamEvent<any>>[] = [];
+      const events = fetcher.fetch();
+
+      for await (const event of events) {
+        let data: unknown;
+        try {
+          data = JSONCodec<unknown>().decode(event.data);
+        } catch (error) {
+          data = StringCodec().decode(event.data);
+        }
+        const message: Partial<EmitterStreamEvent<any>> = { data };
+        message.ack = event.ack.bind(event);
+        message.nak = event.nak.bind(event);
+
+        batch.push(message);
+      }
+      listener.emit(eventName, batch);
     }
   }
 
   /**
    * Make listener for service events. Auto subscribe and unsubscribe to subject
    */
-  public getListener<A extends keyof E>(serviceNameFrom: string, options?: GetListenerOptions): Listener<E> {
+  public getListener<A extends keyof E>(serviceNameFrom: string, options?: GetListenerOptions): Listener<E>;
+  public getListener<A extends keyof E>(serviceNameFrom: string, options?: GetBatchListenerOptions): ListenerBatch<E>;
+  public getListener<A extends keyof E>(
+    serviceNameFrom: string,
+    options?: GetListenerOptions | GetBatchListenerOptions,
+  ): ListenerBatch<E> | ListenerBatch<E> {
     if (!this.events) {
       throw new Error('The service does not generate events');
     }
@@ -94,7 +132,7 @@ export class Client<E extends Emitter = Emitter> extends Root {
 
               const isStream = action.options?.stream;
 
-              let subscription: Subscription | JetStreamSubscription;
+              let subscription: Subscription | JetStreamSubscription | StreamFetcher;
 
               if (isStream) {
                 subscription = await new StreamManager({
@@ -108,7 +146,12 @@ export class Client<E extends Emitter = Emitter> extends Root {
               }
 
               this.subscriptions.set(eventName, subscription);
-              this.startWatch(subscription, listener, String(eventName));
+              if (StreamManager.isStreamFetcher(subscription) && StreamManager.isPullConsumerOptions(options)) {
+                this.startBatchWatch(subscription, listener, String(eventName));
+              } else {
+                this.startWatch(subscription, listener, String(eventName));
+              }
+
               return method.call(target, eventName, handler);
             } catch (error) {
               this.logger.error(`Failed subscribe to subject`, error);
@@ -230,7 +273,8 @@ export class Client<E extends Emitter = Emitter> extends Root {
       const result = await this.broker.request(subject, Buffer.from(JSON.stringify(message)), { timeout });
       return JSONCodec<Message<any>>().decode(result.data);
     } catch (error) {
-      return this.buildErrorMessage(error);
+      const errorMessage = new Error(`${error?.message}. Subject: ${subject} `);
+      return this.buildErrorMessage(errorMessage);
     }
   }
 
@@ -276,13 +320,15 @@ export class Client<E extends Emitter = Emitter> extends Root {
           try {
             resolve(JSON.parse(responseDataString));
           } catch (error) {
-            resolve(this.buildErrorMessage(error));
+            const errorMessage = new Error(`${error?.message}. Subject: ${subject} `);
+            resolve(this.buildErrorMessage(errorMessage));
           }
         },
       );
 
       request.on('error', error => {
-        resolve(this.buildErrorMessage(error));
+        const errorMessage = new Error(`${error?.message}. Subject: ${subject} `);
+        resolve(this.buildErrorMessage(errorMessage));
       });
 
       if (this.isStream(message.payload)) {

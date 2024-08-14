@@ -10,11 +10,23 @@ beforeEach(() => {
 
 describe('Testing Client class methods', () => {
   const jetstreamSubscribeMock = jest.fn();
+  const jetstreamFetchMock = jest.fn();
+  const jetstreamManagerStreamsFindMock = jest.fn();
+  const jetstreamManagerConsumersAdd = jest.fn();
   const broker = {
     subscribe: jest.fn(),
     request: jest.fn(),
     jetstream: () => ({
       subscribe: jetstreamSubscribeMock,
+      fetch: jetstreamFetchMock,
+    }),
+    jetstreamManager: jest.fn().mockResolvedValue({
+      streams: {
+        find: jetstreamManagerStreamsFindMock.mockResolvedValue('TestStream'),
+      },
+      consumers: {
+        add: jetstreamManagerConsumersAdd.mockResolvedValue(true),
+      },
     }),
   };
 
@@ -76,6 +88,27 @@ describe('Testing Client class methods', () => {
       result.off('Notify', handler);
 
       expect((subscribe as any).unsubscribe).toBeCalledTimes(1);
+    });
+  });
+
+  describe('Fetch event butchs', () => {
+    test('Successful fetch events from stream', done => {
+      const payload = { data: { elapsed: 42 } };
+      const subscribe = new PassThrough({ objectMode: true });
+      jetstreamFetchMock.mockReturnValueOnce(subscribe);
+      jetstreamFetchMock.mockReturnValueOnce(new PassThrough({ objectMode: true }));
+
+      const result = mathClient.getListener('Test', { batch: true });
+
+      result.on('Elapsed', event => {
+        expect(event.length).toBe(3);
+        done();
+      });
+
+      subscribe.write({ data: codec.encode(payload.data), sid: '1', ack: jest.fn(), nak: jest.fn() });
+      subscribe.write({ data: codec.encode(payload.data), sid: '2', ack: jest.fn(), nak: jest.fn() });
+      subscribe.write({ data: codec.encode(payload.data), sid: '3', ack: jest.fn(), nak: jest.fn() });
+      subscribe.end();
     });
   });
 
