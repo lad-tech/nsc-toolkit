@@ -1,16 +1,21 @@
 import {
   ConsumerOpts,
   ConsumerOptsBuilder,
+  Consumers,
   JetStreamClient,
+  JetStreamManager,
+  JetStreamOptions,
   JetStreamPublishOptions,
   JetStreamPullSubscription,
   JetStreamSubscription,
   JsMsg,
   PubAck,
   PullOptions,
+  QueuedIterator,
+  Streams,
+  Views,
 } from 'nats';
-import { QueuedIterator } from 'nats/lib/nats-base-client/queued_iterator';
-import { Views } from 'nats/lib/nats-base-client/types';
+
 import { EventEmitter } from 'stream';
 import { UnionSubscription } from './Subscription';
 
@@ -18,6 +23,15 @@ export class JetStreamClientBlank implements JetStreamClient {
   views: Views;
 
   constructor(private emitter: EventEmitter) {}
+  apiPrefix: string;
+  consumers: Consumers;
+  streams: Streams;
+  jetstreamManager(checkAPI?: boolean | undefined): Promise<JetStreamManager> {
+    throw new Error('Method not implemented.');
+  }
+  getOptions(): JetStreamOptions {
+    throw new Error('Method not implemented.');
+  }
 
   publish(subj: string, data?: Uint8Array, options?: Partial<JetStreamPublishOptions>): Promise<PubAck> {
     throw new Error('Method publish not implemented.');
