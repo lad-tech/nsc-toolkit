@@ -1,5 +1,4 @@
-import { JetStreamClient, JsMsg } from 'nats';
-import { QueuedIterator } from 'nats/lib/nats-base-client/queued_iterator';
+import { JetStreamClient, JsMsg, QueuedIterator } from 'nats';
 
 interface BatcherOptions {
   batchSize?: number;

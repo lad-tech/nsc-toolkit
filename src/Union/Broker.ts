@@ -4,9 +4,12 @@ import {
   JetStreamOptions,
   Msg,
   NatsConnection,
+  Payload,
   PublishOptions,
+  RequestManyOptions,
   RequestOptions,
   ServerInfo,
+  ServicesAPI,
   Stats,
   Status,
   Subscription,
@@ -26,6 +29,19 @@ interface Union {
 export type Broker = NatsConnection & Union;
 
 export class UnionBroker implements Broker {
+  publishMessage(msg: Msg): void {
+    throw new Error('Method not implemented.');
+  }
+  respondMessage(msg: Msg): boolean {
+    throw new Error('Method not implemented.');
+  }
+  requestMany(subject: string, payload?: Payload | undefined, opts?: Partial<RequestManyOptions> | undefined): Promise<AsyncIterable<Msg>> {
+    throw new Error('Method not implemented.');
+  }
+  services: ServicesAPI;
+  reconnect(): Promise<void> {
+    throw new Error('Method not implemented.');
+  }
   info?: ServerInfo;
 
   public isUnion = true;

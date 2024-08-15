@@ -1,11 +1,10 @@
-import { Msg, NatsError, Subscription } from 'nats';
-import { Closed, ConsumerInfoable, Destroyable } from 'nats/lib/nats-base-client/types';
+import { Closed, ConsumerInfoable, Destroyable, Msg, NatsError, Subscription } from 'nats';
 import { PassThrough } from 'node:stream';
 
 export class UnionSubscription extends PassThrough implements Subscription, Destroyable, Closed, ConsumerInfoable {
   closed: Promise<void>;
   unsubscribe(max?: number): void {
-    this.destroy()
+    this.destroy();
   }
   drain(): Promise<void> {
     throw new Error('Method drain not implemented.');

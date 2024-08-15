@@ -11,8 +11,8 @@ import {
   Subscription,
 } from 'nats';
 import { Root } from './Root';
-import { isConsumerOptsBuilder } from 'nats/lib/nats-base-client/jsconsumeropts';
 import { StreamFetcher } from './StreamFetcher';
+import { isConsumerOptsBuilder } from 'nats/lib/jetstream/types';
 
 export class StreamManager extends Root {
   private readonly STAR_WILDCARD = '*';
