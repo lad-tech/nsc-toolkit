@@ -52,6 +52,6 @@ export class StreamApiBlank implements StreamAPI {
     throw new Error('Method getMessage not implemented.');
   }
   find(subject: string): Promise<string> {
-    throw new Error('Method find not implemented.');
+    return Promise.resolve('Ok');
   }
 }

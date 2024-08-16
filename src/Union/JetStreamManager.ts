@@ -1,5 +1,6 @@
-import { Advisory, ConsumerAPI, JetStreamAccountStats, JetStreamClient, JetStreamManager, JetStreamOptions } from 'nats';
+import { Advisory, JetStreamAccountStats, JetStreamClient, JetStreamManager, JetStreamOptions } from 'nats';
 import { StreamApiBlank } from './StreamApi';
+import { ConsumerApiBlank } from './ConsumerApi';
 
 export class JetStreamManagerBlank implements JetStreamManager {
   getOptions(): JetStreamOptions {
@@ -8,7 +9,7 @@ export class JetStreamManagerBlank implements JetStreamManager {
   jetstream(): JetStreamClient {
     throw new Error('Method not implemented.');
   }
-  consumers: ConsumerAPI;
+  consumers = new ConsumerApiBlank();
   streams = new StreamApiBlank();
   getAccountInfo(): Promise<JetStreamAccountStats> {
     throw new Error('Method getAccountInfo not implemented.');
