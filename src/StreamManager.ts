@@ -155,7 +155,7 @@ export class StreamManager extends Root {
     }
 
     if (isConsumerOptsBuilder(options)) {
-      await this.jsm.consumers.add(streamName, options.config);
+      await this.jsm.consumers.add(streamName, { ...options.config, filter_subject: subject });
     }
 
     return isPullConsumer
