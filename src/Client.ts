@@ -154,7 +154,9 @@ export class Client<E extends Emitter = Emitter> extends Root {
 
               return method.call(target, eventName, handler);
             } catch (error) {
-              this.logger.error(`Failed subscribe to subject`, error);
+              const errorMessage = 'Failed subscribe to subject';
+              this.logger.error(errorMessage, error);
+              throw new Error(`${errorMessage} ${this.serviceName}.${String(eventName)}`);
             }
           };
         }
