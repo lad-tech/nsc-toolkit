@@ -19,6 +19,7 @@ export class StreamManager extends Root {
   private readonly GREATER_WILDCARD = '>';
   private readonly TWO_WEEKS_IN_SECOND = 1209600;
   private readonly ONE_DAY_IN_SECOND = 86400;
+  private readonly CONSUMER_NOT_FOUND = 'consumer not found';
 
   private readonly defaultStreamOption: Omit<Required<StreamAction>, 'action' | 'maxBytes'> &
     Pick<StreamAction, 'maxBytes'> = {
@@ -155,7 +156,15 @@ export class StreamManager extends Root {
     }
 
     if (isConsumerOptsBuilder(options)) {
-      await this.jsm.consumers.add(streamName, { ...options.config, filter_subject: subject });
+      const isConsumerExist = await this.jsm.consumers.info(streamName, consumerName).catch(async error => {
+        if (error.message === this.CONSUMER_NOT_FOUND) {
+          return false;
+        }
+        throw error;
+      });
+      if (!isConsumerExist) {
+        await this.jsm.consumers.add(streamName, { ...options.config, filter_subject: subject });
+      }
     }
 
     return isPullConsumer
