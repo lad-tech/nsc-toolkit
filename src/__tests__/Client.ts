@@ -26,6 +26,7 @@ describe('Testing Client class methods', () => {
       },
       consumers: {
         add: jetstreamManagerConsumersAdd.mockResolvedValue(true),
+        info: jetstreamManagerConsumersAdd.mockResolvedValue(false),
       },
     }),
   };
@@ -91,7 +92,7 @@ describe('Testing Client class methods', () => {
     });
   });
 
-  describe('Fetch event butchs', () => {
+  describe('Fetch event batch', () => {
     test('Successful fetch events from stream', done => {
       const payload = { data: { elapsed: 42 } };
       const subscribe = new PassThrough({ objectMode: true });
