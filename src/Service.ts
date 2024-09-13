@@ -471,12 +471,13 @@ export class Service<E extends Emitter = Emitter> extends Root {
         this.subscriptions.push(subscription);
         for await (const message of subscription) {
           const { payload, baggage } = JSONCodec<Message<unknown>>().decode(message.data);
-          try {
-            const result = await this.handled(payload, Method, baggage);
-            message.respond(this.buildMessage(result));
-          } catch (error) {
-            message.respond(this.buildMessage({ error: error.message }));
-          }
+          this.handled(payload, Method, baggage)
+            .then(result => {
+              message.respond(this.buildMessage(result));
+            })
+            .catch(error => {
+              message.respond(this.buildMessage({ error: error.message }));
+            });
         }
       });
 
