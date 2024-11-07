@@ -1,4 +1,4 @@
-import { JetStreamClient, JsMsg, QueuedIterator } from 'nats';
+import { ConsumerMessages, JetStreamClient } from 'nats';
 
 interface BatcherOptions {
   batchSize?: number;
@@ -13,11 +13,11 @@ export class StreamFetcher {
     private options: BatcherOptions,
   ) {}
 
-  public fetch(noWait?: boolean, size?: number, expires?: number): QueuedIterator<JsMsg> {
-    return this.jsClient.fetch(this.streamName, this.consumerName, {
-      batch: size ?? this.options.batchSize,
+  public async fetch(size?: number, expires?: number): Promise<ConsumerMessages> {
+    const consumer = await this.jsClient.consumers.get(this.streamName, this.consumerName);
+    return await consumer.fetch({
+      max_messages: size ?? this.options.batchSize,
       expires: expires ?? this.options.batchTimeout,
-      no_wait: noWait ?? this.options.noWait,
     });
   }
 }

@@ -81,7 +81,7 @@ export class Client<E extends Emitter = Emitter> extends Root {
   private async startBatchWatch(fetcher: StreamFetcher, listener: EventEmitter, eventName: string) {
     while (true) {
       const batch: Partial<EmitterStreamEvent<any>>[] = [];
-      const events = fetcher.fetch();
+      const events = await fetcher.fetch();
 
       for await (const event of events) {
         let data: unknown;
@@ -97,7 +97,7 @@ export class Client<E extends Emitter = Emitter> extends Root {
         batch.push(message);
       }
       if (batch.length > 0) listener.emit(eventName, batch);
-      events.stop();
+      await events.close();
     }
   }
 
