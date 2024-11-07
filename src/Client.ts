@@ -97,6 +97,7 @@ export class Client<E extends Emitter = Emitter> extends Root {
         batch.push(message);
       }
       if (batch.length > 0) listener.emit(eventName, batch);
+      events.stop();
     }
   }
 
