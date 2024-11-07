@@ -18,7 +18,11 @@ describe('Testing Client class methods', () => {
     request: jest.fn(),
     jetstream: () => ({
       subscribe: jetstreamSubscribeMock,
-      fetch: jetstreamFetchMock,
+      consumers: {
+        get: jest.fn().mockResolvedValue({
+          fetch: jetstreamFetchMock,
+        }),
+      },
     }),
     jetstreamManager: jest.fn().mockResolvedValue({
       streams: {
@@ -97,10 +101,10 @@ describe('Testing Client class methods', () => {
       const payload = { data: { elapsed: 42 } };
       const subscribe = new PassThrough({ objectMode: true });
       const secondSubscribe = new PassThrough({ objectMode: true });
-      subscribe['stop'] = jest.fn();
-      secondSubscribe['stop'] = jest.fn();
-      jetstreamFetchMock.mockReturnValueOnce(subscribe);
-      jetstreamFetchMock.mockReturnValueOnce(secondSubscribe);
+      subscribe['close'] = jest.fn().mockResolvedValue('Ok');
+      secondSubscribe['close'] = jest.fn().mockResolvedValue('Ok');
+      jetstreamFetchMock.mockResolvedValueOnce(subscribe);
+      jetstreamFetchMock.mockResolvedValueOnce(secondSubscribe);
 
       const result = mathClient.getListener('Test', { batch: true });
 
