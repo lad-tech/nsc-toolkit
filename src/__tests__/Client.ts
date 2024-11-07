@@ -96,8 +96,11 @@ describe('Testing Client class methods', () => {
     test('Successful fetch events from stream', done => {
       const payload = { data: { elapsed: 42 } };
       const subscribe = new PassThrough({ objectMode: true });
+      const secondSubscribe = new PassThrough({ objectMode: true });
+      subscribe['stop'] = jest.fn();
+      secondSubscribe['stop'] = jest.fn();
       jetstreamFetchMock.mockReturnValueOnce(subscribe);
-      jetstreamFetchMock.mockReturnValueOnce(new PassThrough({ objectMode: true }));
+      jetstreamFetchMock.mockReturnValueOnce(secondSubscribe);
 
       const result = mathClient.getListener('Test', { batch: true });
 
