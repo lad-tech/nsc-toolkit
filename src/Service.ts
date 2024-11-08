@@ -1,5 +1,5 @@
 import { Root } from './Root';
-import { JSONCodec, Subscription, DebugEvents, Events } from 'nats';
+import { JSONCodec, Subscription, DebugEvents, Events, headers, MsgHdrs } from 'nats';
 import {
   Message,
   Emitter,
@@ -43,6 +43,12 @@ export class Service<E extends Emitter = Emitter> extends Root {
   private httpMethods = new Map<string, Method>();
   private rootSpans = new Map<string, Span>();
 
+  /**
+   * Unique identifier NATS header for a message that will be used by the server apply
+   * de-duplication within the configured Duplicate Window
+   */
+  private readonly UNIQ_ID_HEADER = 'Nats-Msg-Id';
+
   constructor(private options: ServiceOptions<E>) {
     super(options.brokerConnection, options.loggerOutputFormatter);
 
@@ -51,7 +57,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
     if (options.events) {
       const events = Object.keys(options.events.list) as [keyof E];
       this.emitter = events.reduce((result, eventName) => {
-        result[eventName] = ((params: unknown) => {
+        result[eventName] = ((params: unknown, uniqId?: string) => {
           const subject: string[] = [options.name];
 
           const eventOptions = options.events?.list[eventName];
@@ -68,7 +74,13 @@ export class Service<E extends Emitter = Emitter> extends Root {
 
           subject.push(String(eventName));
 
-          this.broker.publish(subject.join('.'), this.buildMessage(params));
+          let settings: { headers: MsgHdrs } | undefined;
+          if (uniqId) {
+            settings = { headers: headers() };
+            settings.headers.append(this.UNIQ_ID_HEADER, uniqId);
+          }
+
+          this.broker.publish(subject.join('.'), this.buildMessage(params), settings);
         }) as E[keyof E];
         return result;
       }, this.emitter);

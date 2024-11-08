@@ -32,6 +32,7 @@ describe('Testing Service class methods', () => {
       subscribe: jetstreamSubscribeMock,
     }),
     status: () => brokerEvents,
+    publish: jest.fn(),
   };
 
   const codec = JSONCodec();
@@ -233,6 +234,20 @@ describe('Testing Service class methods', () => {
       server.emit('request', httpRequest, response);
       await setTimeout(1);
       expect(result).toMatchObject(streamResponse);
+    });
+
+    test('Event sending', async () => {
+      const mathService = new Service<EmitterMath>({
+        name,
+        brokerConnection: broker as any,
+        methods: [],
+        events,
+      });
+
+      await mathService.start();
+
+      mathService.emitter.Notify({ method: 'Test' }, 'uniq_key');
+      expect(broker.publish).toBeCalledTimes(1);
     });
   });
 
