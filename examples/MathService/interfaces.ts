@@ -15,9 +15,9 @@ export interface FibonacciNumberEvent {
 }
 
 export type EmitterMath = {
-  Elapsed: (params: ElapsedEvent) => void;
-  Notify: (params: NotifyEvent) => void;
-  FibonacciNumber: (params: FibonacciNumberEvent) => void;
+  Elapsed: (params: ElapsedEvent, uniqId?: string) => void;
+  Notify: (params: NotifyEvent, uniqId?: string) => void;
+  FibonacciNumber: (params: FibonacciNumberEvent, uniqId?: string) => void;
 };
 
 export type EmitterMathExternal = {
