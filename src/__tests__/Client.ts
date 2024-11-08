@@ -101,8 +101,6 @@ describe('Testing Client class methods', () => {
       const payload = { data: { elapsed: 42 } };
       const subscribe = new PassThrough({ objectMode: true });
       const secondSubscribe = new PassThrough({ objectMode: true });
-      subscribe['close'] = jest.fn().mockResolvedValue('Ok');
-      secondSubscribe['close'] = jest.fn().mockResolvedValue('Ok');
       jetstreamFetchMock.mockResolvedValueOnce(subscribe);
       jetstreamFetchMock.mockResolvedValueOnce(secondSubscribe);
 
