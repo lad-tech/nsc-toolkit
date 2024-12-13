@@ -11,8 +11,11 @@ beforeEach(() => {
 describe('Testing Client class methods', () => {
   const jetstreamSubscribeMock = jest.fn();
   const jetstreamFetchMock = jest.fn();
+  const jetstreamNextMock = jest.fn();
   const jetstreamManagerStreamsFindMock = jest.fn();
+  const jetstreamManagerConsumerInfo = jest.fn();
   const jetstreamManagerConsumersAdd = jest.fn();
+  const jetstreamManagerConsumerUpdate = jest.fn();
   const broker = {
     subscribe: jest.fn(),
     request: jest.fn(),
@@ -21,6 +24,7 @@ describe('Testing Client class methods', () => {
       consumers: {
         get: jest.fn().mockResolvedValue({
           fetch: jetstreamFetchMock,
+          next: jetstreamNextMock,
         }),
       },
     }),
@@ -30,7 +34,8 @@ describe('Testing Client class methods', () => {
       },
       consumers: {
         add: jetstreamManagerConsumersAdd.mockResolvedValue(true),
-        info: jetstreamManagerConsumersAdd.mockResolvedValue(false),
+        info: jetstreamManagerConsumerInfo.mockResolvedValue(false),
+        update: jetstreamManagerConsumerUpdate.mockResolvedValue(true),
       },
     }),
   };
