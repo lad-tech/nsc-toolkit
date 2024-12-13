@@ -1,18 +1,9 @@
 import { StreamAction, StreamManagerParam, GetListenerOptions, GetBatchListenerOptions } from '.';
-import {
-  JetStreamManager,
-  RetentionPolicy,
-  StorageType,
-  DiscardPolicy,
-  Nanos,
-  JetStreamSubscription,
-  consumerOpts,
-  createInbox,
-  Subscription,
-} from 'nats';
+import { JetStreamManager, RetentionPolicy, StorageType, DiscardPolicy, Nanos, consumerOpts, Subscription } from 'nats';
 import { Root } from './Root';
-import { StreamFetcher } from './StreamFetcher';
+import { StreamBatchMsgFetcher } from './StreamBatchMsgFetcher';
 import { isConsumerOptsBuilder } from 'nats/lib/jetstream/types';
+import { StreamSingleMsgFetcher } from './StreamSingleMsgFetcher';
 
 export class StreamManager extends Root {
   private readonly STAR_WILDCARD = '*';
@@ -44,8 +35,10 @@ export class StreamManager extends Root {
     return !!(setting as GetBatchListenerOptions)?.batch;
   }
 
-  static isStreamFetcher(consumer?: JetStreamSubscription | StreamFetcher | Subscription): consumer is StreamFetcher {
-    return !!(consumer as StreamFetcher)?.fetch;
+  static isStreamFetcher(
+    consumer?: StreamSingleMsgFetcher | StreamBatchMsgFetcher | Subscription,
+  ): consumer is StreamBatchMsgFetcher {
+    return !!(consumer as StreamBatchMsgFetcher)?.fetch;
   }
 
   public async createStreams() {
@@ -90,17 +83,17 @@ export class StreamManager extends Root {
     serviceNameFrom: string,
     eventName: string,
     setting?: GetListenerOptions,
-  ): Promise<JetStreamSubscription>;
+  ): Promise<StreamSingleMsgFetcher>;
   public async createConsumer(
     serviceNameFrom: string,
     eventName: string,
     setting?: GetBatchListenerOptions,
-  ): Promise<StreamFetcher>;
+  ): Promise<StreamBatchMsgFetcher>;
   public async createConsumer(
     serviceNameFrom: string,
     eventName: string,
     setting?: GetListenerOptions | GetBatchListenerOptions,
-  ): Promise<JetStreamSubscription | StreamFetcher> {
+  ): Promise<StreamSingleMsgFetcher | StreamBatchMsgFetcher> {
     const consumerName = this.capitalizeFirstLetter(serviceNameFrom) + this.capitalizeFirstLetter(eventName);
     const prefix = this.param.options.prefix;
     const subject = `${this.param.serviceName}.${prefix}.${eventName}`;
@@ -118,10 +111,6 @@ export class StreamManager extends Root {
       .ackExplicit()
       .filterSubject(subject)
       .maxAckPending(setting?.maxPending || 10);
-
-    if (!isPullConsumer) {
-      options.deliverTo(createInbox());
-    }
 
     if (isPullConsumer) {
       if (setting.maxPullRequestExpires) {
@@ -164,15 +153,19 @@ export class StreamManager extends Root {
       });
       if (!isConsumerExist) {
         await this.jsm.consumers.add(streamName, { ...options.config, filter_subject: subject });
+      } else {
+        await this.jsm.consumers.update(streamName, consumerName, options.config);
       }
     }
 
+    const consumer = await this.broker.jetstream().consumers.get(streamName, consumerName);
+
     return isPullConsumer
-      ? new StreamFetcher(this.broker.jetstream(), streamName, consumerName, {
+      ? new StreamBatchMsgFetcher(consumer, {
           batchSize: setting.maxPullRequestBatch,
           batchTimeout: setting.maxPullRequestExpires,
         })
-      : this.broker.jetstream().subscribe(subject, options);
+      : new StreamSingleMsgFetcher(consumer);
   }
 
   private getStreamName(eventName: string) {

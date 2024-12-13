@@ -4,7 +4,7 @@ import { Transform, TransformCallback, TransformOptions } from 'stream';
 export class BufferToJsonTransform<T = any> extends Transform {
   private head: Buffer = Buffer.from('');
   private static errors = {
-    CONVERSION_ERROR: 'Не удалось преобразовать данные',
+    CONVERSION_ERROR: 'Failed to convert data',
   };
   private logger?: Logs.Logger;
   constructor(options: TransformOptions & { logger?: Logs.Logger }) {

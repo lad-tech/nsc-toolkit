@@ -1,14 +1,6 @@
 import * as opentelemetry from '@opentelemetry/api';
 import Ajv from 'ajv';
-import {
-  JetStreamSubscription,
-  JsMsg,
-  JSONCodec,
-  Msg,
-  Subscription,
-  StringCodec,
-  JetStreamPullSubscription,
-} from 'nats';
+import { JsMsg, JSONCodec, Msg, Subscription, StringCodec } from 'nats';
 import { createHash } from 'node:crypto';
 import * as http from 'node:http';
 import { EventEmitter, Readable } from 'node:stream';
@@ -32,7 +24,8 @@ import {
 } from './interfaces';
 import { Root } from './Root';
 import { StreamManager } from './StreamManager';
-import { StreamFetcher } from './StreamFetcher';
+import { StreamBatchMsgFetcher } from './StreamBatchMsgFetcher';
+import { StreamSingleMsgFetcher } from './StreamSingleMsgFetcher';
 
 type RequestData = Record<string, unknown> | Readable;
 export class Client<E extends Emitter = Emitter> extends Root {
@@ -42,7 +35,7 @@ export class Client<E extends Emitter = Emitter> extends Root {
   private events?: Events<E>;
   private Ref?: object;
 
-  private subscriptions = new Map<keyof E, Subscription | JetStreamSubscription>();
+  private subscriptions = new Map<keyof E, Subscription | StreamSingleMsgFetcher>();
   private REQUEST_HTTP_SETTINGS_TIMEOUT = 1000; // ms
 
   constructor({ broker, events, loggerOutputFormatter, serviceName, baggage, cache, Ref }: ClientParam<E>) {
@@ -56,7 +49,7 @@ export class Client<E extends Emitter = Emitter> extends Root {
   }
 
   private async startWatch(
-    subscription: Subscription | JetStreamSubscription,
+    subscription: Subscription | StreamSingleMsgFetcher,
     listener: EventEmitter,
     eventName: string,
   ) {
@@ -78,7 +71,7 @@ export class Client<E extends Emitter = Emitter> extends Root {
     }
   }
 
-  private async startBatchWatch(fetcher: StreamFetcher, listener: EventEmitter, eventName: string) {
+  private async startBatchWatch(fetcher: StreamBatchMsgFetcher, listener: EventEmitter, eventName: string) {
     while (true) {
       const batch: Partial<EmitterStreamEvent<any>>[] = [];
       const events = await fetcher.fetch();
@@ -132,7 +125,7 @@ export class Client<E extends Emitter = Emitter> extends Root {
 
               const isStream = action.options?.stream;
 
-              let subscription: Subscription | JetStreamSubscription | StreamFetcher;
+              let subscription: Subscription | StreamSingleMsgFetcher | StreamBatchMsgFetcher;
 
               if (isStream) {
                 subscription = await new StreamManager({
