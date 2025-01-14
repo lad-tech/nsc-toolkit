@@ -96,7 +96,7 @@ export class StreamManager extends Root {
   ): Promise<StreamSingleMsgFetcher | StreamBatchMsgFetcher> {
     const consumerName = this.capitalizeFirstLetter(serviceNameFrom) + this.capitalizeFirstLetter(eventName);
     const prefix = this.param.options.prefix;
-    const subject = `${this.param.serviceName}.${prefix}.${eventName}`;
+    const subject = `${this.param.serviceName}.${prefix}.${eventName}.*`;
 
     if (!this.jsm) {
       this.jsm = await this.param.broker.jetstreamManager();
@@ -154,7 +154,7 @@ export class StreamManager extends Root {
       if (!isConsumerExist) {
         await this.jsm.consumers.add(streamName, { ...options.config, filter_subject: subject });
       } else {
-        await this.jsm.consumers.update(streamName, consumerName, options.config);
+        await this.jsm.consumers.update(streamName, consumerName, { ...options.config, filter_subject: subject });
       }
     }
 

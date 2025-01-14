@@ -48,6 +48,14 @@ export class Service<E extends Emitter = Emitter> extends Root {
    * de-duplication within the configured Duplicate Window
    */
   private readonly UNIQ_ID_HEADER = 'Nats-Msg-Id';
+  /**
+   * Nats-Rollup header indicating all prior messages should be purged
+   */
+  private readonly ROLLUP_HEADER = 'Nats-Rollup';
+  /**
+   * Roll-up only same subject message in the stream
+   */
+  private readonly ROLLUP_STRATEGY = 'sub';
 
   constructor(private options: ServiceOptions<E>) {
     super(options.brokerConnection, options.loggerOutputFormatter);
@@ -57,7 +65,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
     if (options.events) {
       const events = Object.keys(options.events.list) as [keyof E];
       this.emitter = events.reduce((result, eventName) => {
-        result[eventName] = ((params: unknown, uniqId?: string) => {
+        result[eventName] = ((params: unknown, uniqId?: string, rollupId?: string) => {
           const subject: string[] = [options.name];
 
           const eventOptions = options.events?.list[eventName];
@@ -78,6 +86,11 @@ export class Service<E extends Emitter = Emitter> extends Root {
           if (uniqId) {
             settings = { headers: headers() };
             settings.headers.append(this.UNIQ_ID_HEADER, uniqId);
+          }
+          if (rollupId) {
+            settings = settings ?? { headers: headers() };
+            settings.headers.append(this.ROLLUP_HEADER, this.ROLLUP_STRATEGY);
+            subject.push(rollupId);
           }
 
           this.broker.publish(subject.join('.'), this.buildMessage(params), settings);
