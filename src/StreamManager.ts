@@ -154,7 +154,7 @@ export class StreamManager extends Root {
       if (!isConsumerExist) {
         await this.jsm.consumers.add(streamName, { ...options.config, filter_subject: subject });
       } else {
-        await this.jsm.consumers.update(streamName, consumerName, { ...options.config, filter_subject: subject });
+        await this.jsm.consumers.update(streamName, consumerName, { ...options.config, filter_subject: subject, deliver_subject: undefined });
       }
     }
 
