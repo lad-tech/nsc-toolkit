@@ -71,16 +71,15 @@ describe('Testing Client class methods', () => {
 
     test('Successful subscription and event processing for a streaming event', () => {
       const payload = { data: { elapsed: 42 } };
-      const subscribe = new PassThrough({ objectMode: true });
-      jetstreamSubscribeMock.mockReturnValue(subscribe);
+      jetstreamNextMock.mockResolvedValue({ data: codec.encode(payload.data), sid: '1', ack: jest.fn(), nak: jest.fn() });
 
       const result = mathClient.getListener('Test');
-
-      result.on('Elapsed', event => {
+      const handler = event => {
         expect(event.data.elapsed).toBe(payload.data.elapsed);
-      });
+        result.off('Elapsed', handler);
+      }
+      result.on('Elapsed', handler);
 
-      subscribe.write({ data: codec.encode(payload.data), sid: '1', ack: jest.fn(), nak: jest.fn() });
     });
 
     test('Successful unsubscribe from the event', () => {

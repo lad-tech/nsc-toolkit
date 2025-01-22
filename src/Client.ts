@@ -54,6 +54,9 @@ export class Client<E extends Emitter = Emitter> extends Root {
     eventName: string,
   ) {
     for await (const event of subscription) {
+      if (!event) {
+        continue;
+      }
       let data: unknown;
       try {
         data = JSONCodec<unknown>().decode(event.data);
