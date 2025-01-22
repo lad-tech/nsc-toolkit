@@ -111,7 +111,7 @@
       "prefix": "stream",
       "actions": [
         {
-          "action": "*",
+          "action": ">",
           "storage": "file",
           "retentionPolicy": "limits",
           "discardPolicy": "old",

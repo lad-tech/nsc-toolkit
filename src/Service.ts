@@ -56,6 +56,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
    * Roll-up only same subject message in the stream
    */
   private readonly ROLLUP_STRATEGY = 'sub';
+  private readonly BASE_EVENT_SUFFIX = 'base';
 
   constructor(private options: ServiceOptions<E>) {
     super(options.brokerConnection, options.loggerOutputFormatter);
@@ -91,6 +92,8 @@ export class Service<E extends Emitter = Emitter> extends Root {
             settings = settings ?? { headers: headers() };
             settings.headers.append(this.ROLLUP_HEADER, this.ROLLUP_STRATEGY);
             subject.push(rollupId);
+          } else {
+            subject.push(this.BASE_EVENT_SUFFIX);
           }
 
           this.broker.publish(subject.join('.'), this.buildMessage(params), settings);
