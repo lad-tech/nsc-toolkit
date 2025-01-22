@@ -1,4 +1,4 @@
-import { Consumer, ConsumerMessages, JsMsg } from 'nats';
+import { Consumer } from 'nats';
 
 export class StreamSingleMsgFetcher {
   private done = false;
