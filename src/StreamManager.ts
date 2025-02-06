@@ -107,12 +107,24 @@ export class StreamManager extends Root {
 
     options
       .durable(consumerName)
-      .manualAck()
-      .ackExplicit()
       .filterSubject(subject)
       .maxAckPending(setting?.maxPending || 10);
 
     if (isPullConsumer) {
+      if (setting.ackPolicy === 'all') {
+        options.manualAck();
+        options.ackAll();
+      }
+
+      if (setting.ackPolicy === 'none') {
+        options.ackNone();
+      }
+
+      if (!setting.ackPolicy) {
+        options.manualAck();
+        options.ackExplicit();
+      }
+
       if (setting.maxPullRequestExpires) {
         options.maxPullRequestExpires(setting.maxPullRequestExpires);
       }
@@ -120,6 +132,9 @@ export class StreamManager extends Root {
       if (setting.maxPullRequestBatch) {
         options.maxPullBatch(setting.maxPullRequestBatch);
       }
+    } else {
+      options.manualAck();
+      options.ackExplicit();
     }
 
     if (setting?.maxAckWaiting) {
@@ -154,7 +169,11 @@ export class StreamManager extends Root {
       if (!isConsumerExist) {
         await this.jsm.consumers.add(streamName, { ...options.config, filter_subject: subject });
       } else {
-        await this.jsm.consumers.update(streamName, consumerName, { ...options.config, filter_subject: subject, deliver_subject: undefined });
+        await this.jsm.consumers.update(streamName, consumerName, {
+          ...options.config,
+          filter_subject: subject,
+          deliver_subject: undefined,
+        });
       }
     }
 
