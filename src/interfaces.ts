@@ -93,6 +93,7 @@ export interface GetBatchListenerOptions extends GetListenerOptions {
   batch: true;
   maxPullRequestBatch?: number;
   maxPullRequestExpires?: number;
+  ackPolicy?: 'all' | 'none';
 }
 
 export interface StreamManagerParam {
