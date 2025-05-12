@@ -1,7 +1,7 @@
 import { Logs } from '@lad-tech/toolbelt';
 import * as opentelemetry from '@opentelemetry/api';
 import type { NatsConnection } from 'nats';
-import type { Baggage } from './interfaces';
+import { TagKey, type Baggage, type ExternalBaggage, type Tag } from './interfaces';
 import { UnionBroker, Broker } from './Union';
 
 export class Root {
@@ -57,7 +57,7 @@ export class Root {
       }
       return expired;
     } catch (error) {
-      console.error(error);
+      this.logger.error(error);
       process.exit(1);
     }
   }
@@ -78,5 +78,47 @@ export class Root {
         code,
       },
     };
+  }
+
+  protected convertBaggaggeToExternalHeader(baggage?: Partial<Baggage>): ExternalBaggage {
+    if (!baggage) {
+      return {};
+    }
+    const headers: ExternalBaggage = {};
+    if (baggage.expired) {
+      headers['nsc-expired'] = baggage.expired;
+    }
+    if (baggage.requestId) {
+      headers['x-request-id'] = baggage.requestId;
+    }
+    if (baggage.traceId) {
+      headers['nsc-trace-id'] = baggage.traceId;
+    }
+    if (baggage.spanId) {
+      headers['nsc-span-id'] = baggage.spanId;
+    }
+    if (baggage.traceFlags) {
+      headers['nsc-trace-flags'] = baggage.traceFlags;
+    }
+    return headers;
+  }
+
+  protected applyTag(span: opentelemetry.Span, tag?: Tag) {
+    if (!tag) {
+      return;
+    }
+
+    if (tag?.[TagKey.TYPE] === 'dbms') {
+      span.setAttribute('db.system', tag?.[TagKey.NAME]);
+      if (tag?.[TagKey.TARGET]) {
+        span.setAttribute('db.name', tag[TagKey.TARGET]!);
+      }
+    }
+    if (tag?.[TagKey.TYPE] === 'api') {
+      span.setAttribute('net.peer.name', tag?.[TagKey.NAME]);
+      if (tag?.[TagKey.TARGET]) {
+        span.setAttribute('http.target', tag[TagKey.TARGET]!);
+      }
+    }
   }
 }
