@@ -1,6 +1,6 @@
 import * as opentelemetry from '@opentelemetry/api';
 import Ajv from 'ajv';
-import { JsMsg, JSONCodec, Msg, Subscription, StringCodec } from 'nats';
+import { JsMsg, JSONCodec, Msg, Subscription, StringCodec, MsgHdrs } from 'nats';
 import { createHash } from 'node:crypto';
 import * as http from 'node:http';
 import { EventEmitter, Readable } from 'node:stream';
@@ -12,7 +12,6 @@ import {
   Emitter,
   EmitterStreamEvent,
   Events,
-  ExternalBaggage,
   GetBatchListenerOptions,
   GetListenerOptions,
   HttpSettings,
@@ -26,6 +25,7 @@ import { Root } from './Root';
 import { StreamManager } from './StreamManager';
 import { StreamBatchMsgFetcher } from './StreamBatchMsgFetcher';
 import { StreamSingleMsgFetcher } from './StreamSingleMsgFetcher';
+import { Meter } from './Meter';
 
 type RequestData = Record<string, unknown> | Readable;
 export class Client<E extends Emitter = Emitter> extends Root {
@@ -64,6 +64,13 @@ export class Client<E extends Emitter = Emitter> extends Root {
         data = StringCodec().decode(event.data);
       }
       const message: Partial<EmitterStreamEvent<any>> = { data };
+
+      let baggage: Baggage | undefined;
+      if (event.headers) {
+        baggage = this.getBaggageFromNATSHeader(event.headers);
+      }
+
+      message.meter = new Meter(eventName, baggage);
 
       if (this.isJsMessage(event)) {
         message.ack = event.ack.bind(event);
@@ -339,30 +346,23 @@ export class Client<E extends Emitter = Emitter> extends Root {
     });
   }
 
-  private convertBaggaggeToExternalHeader(baggage?: Baggage): ExternalBaggage {
-    if (!baggage) {
-      return {};
-    }
-    const headers: ExternalBaggage = {};
-    if (baggage.expired) {
-      headers['nsc-expired'] = baggage.expired;
-    }
-    if (baggage.requestId) {
-      headers['x-request-id'] = baggage.requestId;
-    }
-    if (baggage.traceId) {
-      headers['nsc-trace-id'] = baggage.traceId;
-    }
-    if (baggage.spanId) {
-      headers['nsc-span-id'] = baggage.spanId;
-    }
-    if (baggage.traceFlags) {
-      headers['nsc-trace-flags'] = baggage.traceFlags;
-    }
-    return headers;
-  }
-
   private isJsMessage(message: JsMsg | Msg): message is JsMsg {
     return !!(message as JsMsg).ack && !!(message as JsMsg).nak;
+  }
+
+  private getBaggageFromNATSHeader(headers: MsgHdrs): Baggage | undefined {
+    const traceId = headers.get('nsc-trace-id');
+    const spanId = headers.get('nsc-span-id');
+    const traceFlags = headers.has('nsc-trace-flags') ? +headers.get('nsc-trace-flags') : undefined;
+    const requestId = headers.has('x-request-id') ? String(headers.get('x-request-id')) : undefined;
+
+    if (traceId && spanId && traceFlags) {
+      return {
+        traceId,
+        spanId,
+        traceFlags,
+        requestId,
+      };
+    }
   }
 }

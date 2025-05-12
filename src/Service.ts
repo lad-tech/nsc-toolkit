@@ -16,11 +16,12 @@ import {
   Instance,
   dependencyStorageMetaKey,
   ConstructorDependencyKey,
+  Tag,
 } from '.';
 import { BasicTracerProvider, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { Resource } from '@opentelemetry/resources';
 import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
-import { Tracer, Context, Span, trace } from '@opentelemetry/api';
+import { Tracer, Context, Span, trace, SpanKind } from '@opentelemetry/api';
 import { JaegerExporter } from '@opentelemetry/exporter-jaeger';
 import { IncomingHttpHeaders, ServerResponse } from 'node:http';
 import { Readable, Transform } from 'node:stream';
@@ -66,12 +67,13 @@ export class Service<E extends Emitter = Emitter> extends Root {
     if (options.events) {
       const events = Object.keys(options.events.list) as [keyof E];
       this.emitter = events.reduce((result, eventName) => {
-        result[eventName] = ((params: unknown, uniqId?: string, rollupId?: string) => {
+        result[eventName] = ((params: unknown, uniqId?: string, rollupId?: string, external?: ExternalBaggage) => {
           const subject: string[] = [options.name];
 
           const eventOptions = options.events?.list[eventName];
+          const isStream = eventOptions?.options?.stream;
 
-          if (eventOptions?.options?.stream) {
+          if (isStream) {
             const prefix = options.events?.streamOptions.prefix;
 
             if (!prefix) {
@@ -88,12 +90,32 @@ export class Service<E extends Emitter = Emitter> extends Root {
             settings = { headers: headers() };
             settings.headers.append(this.UNIQ_ID_HEADER, uniqId);
           }
-          if (rollupId) {
+          if (rollupId && isStream) {
             settings = settings ?? { headers: headers() };
             settings.headers.append(this.ROLLUP_HEADER, this.ROLLUP_STRATEGY);
             subject.push(rollupId);
-          } else {
+          } else if (rollupId && !isStream) {
+            this.logger.warn(`${String(eventName)}. Rollup is available only for streams`);
+          } else if (isStream) {
             subject.push(this.BASE_EVENT_SUFFIX);
+          }
+
+          if (external) {
+            const baggage = this.getBaggageFromExternalHeader(external);
+            const tracer = trace.getTracer('');
+            const context = this.getContext(this.isBaggageContainTrace(baggage) ? baggage : undefined);
+            const span = tracer.startSpan(String(eventName), { kind: SpanKind.PRODUCER }, context);
+            const eventSpanContext = span.spanContext();
+            const eventHeader = this.convertBaggaggeToExternalHeader(eventSpanContext);
+
+            if (!settings) {
+              settings = { headers: headers() };
+            }
+            for (const [key, value] of Object.entries(eventHeader)) {
+              settings.headers.append(key, `${value}`);
+            }
+
+            span.end();
           }
 
           this.broker.publish(subject.join('.'), this.buildMessage(params), settings);
@@ -130,11 +152,14 @@ export class Service<E extends Emitter = Emitter> extends Root {
     provider.register();
   }
 
-  private finishSpan(span: Span, error?: Error) {
+  private finishSpan(span: Span, error?: Error, tag?: Tag) {
     if (error) {
       span.setAttribute('error', true);
       span.setAttribute('error.kind', error.message);
     }
+
+    this.applyTag(span, tag);
+
     span.end();
   }
 
@@ -147,6 +172,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
     arg: unknown[],
     tracer: Tracer,
     context?: Context,
+    tag?: Tag,
   ) {
     const span = tracer.startSpan(func.name, undefined, context);
     try {
@@ -154,19 +180,19 @@ export class Service<E extends Emitter = Emitter> extends Root {
       if (result.then) {
         return result.then(
           (result: any) => {
-            this.finishSpan(span);
+            this.finishSpan(span, undefined, tag);
             return result;
           },
           (error: Error) => {
-            this.finishSpan(span, error);
+            this.finishSpan(span, error, tag);
             throw error;
           },
         );
       }
-      this.finishSpan(span);
+      this.finishSpan(span, undefined, tag);
       return result;
     } catch (error) {
-      this.finishSpan(span, error);
+      this.finishSpan(span, error, tag);
       throw error;
     }
   }
@@ -174,7 +200,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
   /**
    * Build trap for object with async methods
    */
-  private getTrap(instance: Instance, tracer: Tracer, baggage?: Baggage) {
+  private getTrap(instance: Instance, tracer: Tracer, baggage?: Baggage, tag?: Tag) {
     const perform = this.perform.bind(this);
     const context = this.getContext(baggage);
     return {
@@ -182,7 +208,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
         const method = Reflect.get(target, propKey, receiver);
         if (typeof method === 'function') {
           return function (...args: unknown[]) {
-            return perform(method, instance, args, tracer, context);
+            return perform(method, instance, args, tracer, context, tag);
           };
         } else {
           return method;
@@ -197,6 +223,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
   private createObjectWithDependencies(method: Method, tracer: Tracer, baggage?: Baggage) {
     const services = ServiceContainer.get(method.settings.action) || new Map<string, Dependency>();
     const instances = InstanceContainer.get(method.settings.action) || new Map<string, Instance>();
+    const tags = new Map<string, Tag>();
 
     const dependences: Record<string, any> = { [ConstructorDependencyKey]: [] };
 
@@ -240,6 +267,9 @@ export class Service<E extends Emitter = Emitter> extends Root {
 
         if (dependency.type === DependencyType.ADAPTER) {
           instances.set(propertyName, container.getInstance(dependencyKey));
+          if (dependency.options?.tag) {
+            tags.set(propertyName, dependency.options.tag);
+          }
         }
 
         if (dependency.type === DependencyType.CONSTANT) {
@@ -256,7 +286,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
 
     if (instances.size) {
       instances.forEach((instance, key) => {
-        const trap = this.getTrap(instance, tracer, baggage);
+        const trap = this.getTrap(instance, tracer, baggage, tags.get(key));
         dependences[key] = new Proxy(instance, trap);
       });
     }
@@ -295,7 +325,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
    * If there is no baggage. For example, in HTTP Gateway
    */
   public getRootBaggage(subject: string, headers?: ExternalBaggage, ownTimeout?: number) {
-    const baggage = headers ? this.getBaggageFromHTTPHeader(headers) : undefined;
+    const baggage = headers ? this.getBaggageFromExternalHeader(headers) : undefined;
     const tracer = trace.getTracer('');
     const context = this.getContext(this.isBaggageContainTrace(baggage) ? baggage : undefined);
     const span = tracer.startSpan(subject, undefined, context);
@@ -397,7 +427,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
         if (other.length || wrongServiceName || !Method) {
           throw new Error('Wrong url or service name or action');
         }
-        const baggage = this.getBaggageFromHTTPHeader(request.headers as IncomingHttpHeaders & ExternalBaggage);
+        const baggage = this.getBaggageFromExternalHeader(request.headers as IncomingHttpHeaders & ExternalBaggage);
         if (Method.settings.options?.useStream?.request) {
           const result = await this.handled(request, Method, baggage);
           if (Method.settings.options.useStream.response && result.payload instanceof Readable) {
@@ -445,16 +475,14 @@ export class Service<E extends Emitter = Emitter> extends Root {
       outputFormatter: this.options.loggerOutputFormatter,
     });
 
+    const nextBaggage = this.getNextBaggage(span, baggage);
+
     try {
-      const requestedDependencies = this.createObjectWithDependencies(
-        Method,
-        tracer,
-        this.getNextBaggage(span, baggage),
-      );
+      const requestedDependencies = this.createObjectWithDependencies(Method, tracer, nextBaggage);
       const context = this.createMethodContext(Method, requestedDependencies);
 
       context['logger'] = logger;
-      context['emitter'] = this.emitter;
+      context['emitter'] = this.getWrappedEmitter(nextBaggage);
 
       const response = await context.handler.call(context, payload);
       const result = {
@@ -469,6 +497,30 @@ export class Service<E extends Emitter = Emitter> extends Root {
       this.finishSpan(span, error);
       return this.buildErrorMessage(error);
     }
+  }
+
+  /**
+   * Wrap emitter for luggage baggagge
+   */
+  private getWrappedEmitter(baggage?: Partial<Baggage>): E {
+    if (!baggage) {
+      return this.emitter;
+    }
+
+    const externalBaggage = this.convertBaggaggeToExternalHeader(baggage);
+
+    return new Proxy(this.emitter, {
+      get(target: any, propKey: string, receiver: any) {
+        const event = Reflect.get(target, propKey, receiver);
+        if (typeof event === 'function') {
+          return (params: unknown, uniqId?: string, rollupId?: string, userExternalBaggage?: ExternalBaggage) => {
+            return event(params, uniqId, rollupId, userExternalBaggage ?? externalBaggage);
+          };
+        } else {
+          return event;
+        }
+      },
+    });
   }
 
   /**
@@ -708,7 +760,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
     };
   }
 
-  private getBaggageFromHTTPHeader(headers: ExternalBaggage) {
+  private getBaggageFromExternalHeader(headers: ExternalBaggage) {
     const expired = headers['nsc-expired'] ? +headers['nsc-expired'] : undefined;
     const traceId = headers['nsc-trace-id'];
     const spanId = headers['nsc-span-id'];

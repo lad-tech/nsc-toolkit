@@ -2,7 +2,7 @@ import { Closed, ConsumerInfoable, Destroyable, Msg, NatsError, Subscription } f
 import { PassThrough } from 'node:stream';
 
 export class UnionSubscription extends PassThrough implements Subscription, Destroyable, Closed, ConsumerInfoable {
-  closed: Promise<void>;
+  closed: any;
   unsubscribe(max?: number): void {
     this.destroy();
   }

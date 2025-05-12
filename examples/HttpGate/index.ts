@@ -3,11 +3,16 @@ import Fastify from 'fastify';
 import { NatsConnection } from 'nats';
 import { Baggage, ExternalBaggage } from '../../src/interfaces';
 import { Service } from '../../src/Service';
-import LogicService, { GetUserRequest, WeirdSumRequest, RegisterNewUserRequest } from '../LogicService';
-import MathService from '../MathService';
+import LogicService, { GetUserRequest, WeirdSumRequest, RegisterNewUserRequest } from '../LogicService/index';
+import MathService from '../MathService/index';
 import { methods as mathServiceMethods, Ref } from '../MathService/service.schema.json';
 import { methods as logicServiceMethods } from '../LogicService/service.schema.json';
 import { SimpleCache } from '../SimpleCache';
+import { setTimeout } from 'node:timers/promises';
+
+const fakeRequest = async (delay: number) => {
+  await setTimeout(delay);
+};
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -24,7 +29,7 @@ const upHttpGate = async (service: Service) => {
 
   const mathEmmiter = mathService.getListener(SERVICE_NAME, { deliver: 'all', queue: 'httpGate' });
   const matchBatchEmitter = mathService.getListener(`${SERVICE_NAME}:Batch`, {
-    deliver: 'all',
+    deliver: 'new',
     batch: true,
     maxPullRequestExpires: 5_000,
     maxPullRequestBatch: 19,
@@ -32,13 +37,18 @@ const upHttpGate = async (service: Service) => {
     maxPending: 1000,
   });
 
-  mathEmmiter.on('Elapsed', message => {
+  mathEmmiter.on('Elapsed', async message => {
+    message.meter.start();
     logger.info('Get new event "Elapsed": ', message.data);
+    await message.meter.measure(fakeRequest, [1000], {}, { location: 'external', type: 'dbms', name: 'postgresql' });
     message.ack();
+    message.meter.end();
   });
 
   mathEmmiter.on('Notify', message => {
+    message.meter.start();
     logger.info('Get new event "Notify": ', message.data);
+    message.meter.end();
   });
 
   matchBatchEmitter.on('FibonacciNumber', messages => {

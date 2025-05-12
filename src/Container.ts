@@ -1,12 +1,12 @@
-import { ClientService, dependencyStorageMetaKey, DependencyType, InitializableService } from '.';
+import { ClientService, dependencyStorageMetaKey, DependencyType, InitializableService, Tag } from '.';
 
 type Constant = Record<string, any>;
 
 type Service<R extends Constant = Constant> = ClientService<R>;
 export type Adapter<R extends Constant = Constant> = new (...args: any[]) => R;
 
-export type Singlton = { singlton: true };
-export type NeedInit = { init: true };
+export type Singlton = { singlton: true; tag?: Tag };
+export type NeedInit = { init: true; tag?: Tag };
 
 export type AdapterOptions = Singlton | NeedInit;
 

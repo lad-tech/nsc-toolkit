@@ -105,11 +105,13 @@ export interface StreamManagerParam {
 
 export interface EmitterEvent<D extends Record<string, any>> {
   data: D;
+  meter: EventMeter;
 }
 
 export interface EmitterStreamEvent<D extends Record<string, any>> extends EmitterEvent<D> {
   ack: () => void;
   nak: (millis: number) => void;
+  meter: EventMeter;
 }
 
 export interface StreamAction {
@@ -190,3 +192,27 @@ export const DependencyType = {
   ADAPTER: 'adapter', // A class with asynchronous methods such as a repository
   CONSTANT: 'constant', // Just an object
 } as const;
+
+export type TagKey = typeof TagKey[keyof typeof TagKey];
+export const TagKey = {
+  LOCATION: 'location',
+  TYPE: 'type',
+  NAME: 'name',
+  TARGET: 'target',
+} as const;
+
+export type LocationTagValue = 'internal' | 'external';
+export type TypeTagValue = 'dbms' | 'api';
+
+export type Tag = {
+  [TagKey.LOCATION]: LocationTagValue;
+  [TagKey.TYPE]: TypeTagValue;
+  [TagKey.NAME]: string;
+  [TagKey.TARGET]?: string;
+};
+
+export interface EventMeter {
+  start(): void;
+  end(): void;
+  measure<T extends (...args: any[]) => any>(func: T, arg: Parameters<T>, context: any, tag?: Tag): ReturnType<T>;
+}
