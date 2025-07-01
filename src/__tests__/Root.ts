@@ -89,11 +89,11 @@ describe('Testing Root class methods', () => {
     jest.setSystemTime(0);
 
     const ENV = process.env;
-    const DEFAULT_REPONSE_TIMEOUT = 20_000;
+    const DEFAULT_RESPONSE_TIMEOUT = 20_000;
 
     beforeAll(() => {
       jest.resetModules();
-      process.env = { ...ENV, DEFAULT_REPONSE_TIMEOUT: DEFAULT_REPONSE_TIMEOUT.toString() };
+      process.env = { ...ENV, DEFAULT_RESPONSE_TIMEOUT: DEFAULT_RESPONSE_TIMEOUT.toString() };
     });
 
     afterAll(() => {
@@ -103,7 +103,7 @@ describe('Testing Root class methods', () => {
     test('Timeout timestamp is correctly generated. The timeout in seconds is taken from the environment variable', () => {
       const result = root.getExpiredProxy();
 
-      expect(result).toBe(DEFAULT_REPONSE_TIMEOUT);
+      expect(result).toBe(DEFAULT_RESPONSE_TIMEOUT);
     });
 
     test('Timeout timestamp is correctly generated. The timeout in seconds is taken from the passed value', () => {
@@ -121,7 +121,7 @@ describe('Testing Root class methods', () => {
     });
 
     test('If timeout is not passed and timeout is not set in environment variables, the process exits with an error', () => {
-      process.env.DEFAULT_REPONSE_TIMEOUT = undefined;
+      process.env.DEFAULT_RESPONSE_TIMEOUT = undefined;
       jest.spyOn(process, 'exit').mockImplementation(() => {
         throw new Error();
       });

@@ -5,15 +5,15 @@ type Constant = Record<string, any>;
 type Service<R extends Constant = Constant> = ClientService<R>;
 export type Adapter<R extends Constant = Constant> = new (...args: any[]) => R;
 
-export type Singlton = { singlton: true; tag?: Tag };
+export type Singleton = { singleton: true; tag?: Tag };
 export type NeedInit = { init: true; tag?: Tag };
 
-export type AdapterOptions = Singlton | NeedInit;
+export type AdapterOptions = Singleton | NeedInit;
 
 type Dependency = Service | Adapter | Constant;
 
 type ServiceDependency = { type: typeof DependencyType.SERVICE; value: Service };
-type AdapterDependency = { type: typeof DependencyType.ADAPTER; value: Adapter; options?: Singlton } & {
+type AdapterDependency = { type: typeof DependencyType.ADAPTER; value: Adapter; options?: Singleton } & {
   type: typeof DependencyType.ADAPTER;
   value: Adapter<InitializableService>;
   options?: NeedInit;
@@ -21,11 +21,11 @@ type AdapterDependency = { type: typeof DependencyType.ADAPTER; value: Adapter; 
 type ConstantDependency = { type: typeof DependencyType.CONSTANT; value: Constant };
 
 type ContainerValue = { type: DependencyType; value: Dependency; options?: AdapterOptions };
-type SingltonValue = { value: Constant; init?: boolean };
+type SingletonValue = { value: Constant; init?: boolean };
 
 class Container {
   private readonly container = new Map<symbol, ContainerValue>();
-  private readonly singltons = new Map<symbol, SingltonValue>();
+  private readonly singletons = new Map<symbol, SingletonValue>();
 
   private buildDependency(key: symbol) {
     const deepDependency = this.get(key);
@@ -85,7 +85,7 @@ class Container {
     key: symbol,
     type: typeof DependencyType.ADAPTER,
     value: Adapter<R>,
-    options?: Singlton,
+    options?: Singleton,
   ): void;
   bind<R extends Record<string, any>>(
     key: symbol,
@@ -112,11 +112,11 @@ class Container {
         ) => {
           this.container.set(key, { type: DependencyType.ADAPTER, value, options });
         },
-        Singlton: <R extends Record<string, any>>(value: Adapter<R>) => {
-          this.container.set(key, { type: DependencyType.ADAPTER, value, options: { singlton: true } });
+        Singleton: <R extends Record<string, any>>(value: Adapter<R>) => {
+          this.container.set(key, { type: DependencyType.ADAPTER, value, options: { singleton: true } });
         },
         Constant: <R extends Record<string, any>>(value: R) => {
-          this.container.set(key, { type: DependencyType.CONSTANT, value, options: { singlton: true } });
+          this.container.set(key, { type: DependencyType.CONSTANT, value, options: { singleton: true } });
         },
         Initializable: <R extends Record<string, any>>(value: Adapter<R & InitializableService>) => {
           this.container.set(key, { type: DependencyType.ADAPTER, value, options: { init: true } });
@@ -131,11 +131,11 @@ class Container {
   public async unbind(key: symbol) {
     this.container.delete(key);
 
-    const instance = this.singltons.get(key);
+    const instance = this.singletons.get(key);
     if (instance?.init) {
       await instance.value.close();
     }
-    this.singltons.delete(key);
+    this.singletons.delete(key);
   }
 
   public get(key: symbol) {
@@ -160,14 +160,14 @@ class Container {
     }
 
     if (this.isAdapterDependency(dependency)) {
-      if (this.singltons.has(key)) {
-        return this.singltons.get(key)!.value as R;
+      if (this.singletons.has(key)) {
+        return this.singletons.get(key)!.value as R;
       }
 
       const adapter = new dependency.value(...constructor);
 
-      if (dependency.options?.singlton || dependency.options?.init) {
-        this.singltons.set(key, { value: adapter, init: dependency.options?.init });
+      if (dependency.options?.singleton || dependency.options?.init) {
+        this.singletons.set(key, { value: adapter, init: dependency.options?.init });
       }
 
       return adapter as R;
@@ -179,11 +179,11 @@ class Container {
   public async initDependencies() {
     const initialized: InitializableService[] = [];
     for await (const [key, dependency] of this.container) {
-      if (this.isAdapterDependency(dependency) && dependency.options?.init && !this.singltons.has(key)) {
+      if (this.isAdapterDependency(dependency) && dependency.options?.init && !this.singletons.has(key)) {
         const instance = this.getInstance<InitializableService>(key);
         await instance?.init();
         initialized.push(instance!);
-        this.singltons.set(key, { value: instance, init: dependency.options?.init });
+        this.singletons.set(key, { value: instance, init: dependency.options?.init });
       }
     }
     return initialized;
