@@ -167,7 +167,7 @@ export interface Listener<E extends Emitter> {
 }
 
 export interface ListenerBatch<E extends Emitter> {
-  on<A extends keyof E>(action: A, handler: (params: Array<Parameters<E[A]>[0]>) => void): void;
+  on<A extends keyof E>(action: A, handler: (params: Array<Parameters<E[A]>[0]>, meter: EventMeter) => void): void;
   off<A extends keyof E>(action: A, handler: (params: Array<Parameters<E[A]>[0]>) => void): void;
 }
 

@@ -1,15 +1,40 @@
 import { Baggage, EventMeter, Tag, TagKey } from './interfaces';
 import * as opentelemetry from '@opentelemetry/api';
 import { Root } from './Root';
+import { randomBytes } from 'node:crypto';
 
 export class Meter extends Root implements EventMeter {
   private span?: opentelemetry.Span;
-  constructor(private name: string, private baggage?: Baggage) {
+  private readonly SPAN_ID_BYTE_LENGTH = 8;
+  constructor(private name: string, private baggage?: Baggage, private links?: Baggage[]) {
     super();
   }
   public start() {
     const tracer = opentelemetry.trace.getTracer('');
-    this.span = tracer.startSpan(this.name, { kind: opentelemetry.SpanKind.CONSUMER }, this.getContext(this.baggage));
+
+    const links: opentelemetry.Link[] = [];
+    if (this.links && this.links.length) {
+      this.links.forEach(link => {
+        links.push({
+          context: { traceId: link.traceId, spanId: link.spanId, traceFlags: link.traceFlags },
+        });
+      });
+    }
+
+    if (!this.baggage && links.length) {
+      this.baggage = {
+        traceId: links[0].context.traceId,
+        spanId: randomBytes(this.SPAN_ID_BYTE_LENGTH).toString('hex'),
+        traceFlags: links[0].context.traceFlags,
+      };
+    }
+
+    const linksOption = links.length ? { links } : {};
+    this.span = tracer.startSpan(
+      this.name,
+      { kind: opentelemetry.SpanKind.CONSUMER, ...linksOption },
+      this.getContext(this.baggage),
+    );
   }
   public end(error?: Error) {
     if (!this.span) {
