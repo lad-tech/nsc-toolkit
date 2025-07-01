@@ -29,9 +29,10 @@ export class Meter extends Root implements EventMeter {
       };
     }
 
+    const linksOption = links.length ? { links } : {};
     this.span = tracer.startSpan(
       this.name,
-      { kind: opentelemetry.SpanKind.CONSUMER, links },
+      { kind: opentelemetry.SpanKind.CONSUMER, ...linksOption },
       this.getContext(this.baggage),
     );
   }
