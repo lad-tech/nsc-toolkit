@@ -4,7 +4,7 @@ import { service as mathServiceStart } from '../../examples/MathService/service'
 import { service as logicServiceStart } from '../../examples/LogicService/service';
 
 describe('Services can run in monolithic mode', () => {
-  process.env['DEFAULT_REPONSE_TIMEOUT'] = '10000';
+  process.env['DEFAULT_RESPONSE_TIMEOUT'] = '10000';
   process.env['ENVIRONMENT'] = 'local';
 
   test('Successful calculation of a weird sum', async () => {
@@ -13,7 +13,7 @@ describe('Services can run in monolithic mode', () => {
       methods: [],
     });
 
-    jest.spyOn(process, 'exit').mockImplementation((code?: number) => undefined as never);
+    jest.spyOn(process, 'exit').mockImplementation((code?: number | string | null) => undefined as never);
 
     await mainService.start();
 

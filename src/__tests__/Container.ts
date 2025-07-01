@@ -14,7 +14,7 @@ describe('Successful injection of multi-level dependencies of different types', 
   container.bind<ConfiguratorPort>(TYPES.Configurator, DependencyType.ADAPTER, Configurator);
   container.bind<StoragePort>(TYPES.Storage, DependencyType.CONSTANT, storage);
 
-  process.env.DEFAULT_REPONSE_TIMEOUT = '50000';
+  process.env.DEFAULT_RESPONSE_TIMEOUT = '50000';
 
   const service = new Service({
     name: 'ServiceForTest',
@@ -81,15 +81,15 @@ describe('Successful injection of multi-level dependencies of different types', 
       expect(repository_one !== repository_two).toBeTruthy();
     });
     test('Can make a singleton from an adapter using options', async () => {
-      const key = Symbol.for('SingltonRepository');
-      container.bind<RepositoryPort>(key, DependencyType.ADAPTER, Repository, { singlton: true });
+      const key = Symbol.for('SingletonRepository');
+      container.bind<RepositoryPort>(key, DependencyType.ADAPTER, Repository, { singleton: true });
 
       const repository_one = container.getInstance<RepositoryPort>(key);
       const repository_two = container.getInstance<RepositoryPort>(key);
 
       expect(repository_one === repository_two).toBeTruthy();
     });
-    test('Initializable service is singlton', async () => {
+    test('Initializable service is singleton', async () => {
       const key = Symbol.for('InitializableService');
       container.bind<InitializableService>(key, DependencyType.ADAPTER, InitializableService, { init: true });
 

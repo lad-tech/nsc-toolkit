@@ -48,7 +48,7 @@ export class Root {
   protected getExpired(expired?: number, ownTimeout?: number) {
     try {
       if (!expired) {
-        const timeout = ownTimeout || this.castToNumber(this.getSettingFromEnv('DEFAULT_REPONSE_TIMEOUT'));
+        const timeout = ownTimeout || this.castToNumber(this.getSettingFromEnv('DEFAULT_RESPONSE_TIMEOUT'));
         return Date.now() + timeout;
       }
       if (ownTimeout) {

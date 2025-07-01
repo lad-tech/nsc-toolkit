@@ -18,11 +18,11 @@ import {
   ConstructorDependencyKey,
   Tag,
 } from '.';
-import { BasicTracerProvider, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base';
-import { Resource } from '@opentelemetry/resources';
-import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
+import { NodeTracerProvider, BatchSpanProcessor } from '@opentelemetry/sdk-trace-node';
+import { resourceFromAttributes } from '@opentelemetry/resources';
+import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
 import { Tracer, Context, Span, trace, SpanKind } from '@opentelemetry/api';
-import { JaegerExporter } from '@opentelemetry/exporter-jaeger';
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { IncomingHttpHeaders, ServerResponse } from 'node:http';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -130,25 +130,26 @@ export class Service<E extends Emitter = Emitter> extends Root {
    * Create global Tracer
    */
   private createTracer() {
-    const provider = new BasicTracerProvider({
-      resource: new Resource({
-        [SemanticResourceAttributes.SERVICE_NAME]: this.options.name,
+    const agentUrl = this.getSettingFromEnv('OTEL_AGENT', false);
+    const collectorOptions = {
+      url: agentUrl,
+      concurrencyLimit: 10,
+    };
+
+    const exporter = new OTLPTraceExporter(collectorOptions);
+
+    const provider = new NodeTracerProvider({
+      resource: resourceFromAttributes({
+        [ATTR_SERVICE_NAME]: this.options.name,
       }),
+      spanProcessors: [
+        new BatchSpanProcessor(exporter, {
+          maxQueueSize: 25,
+          scheduledDelayMillis: 10000,
+        }),
+      ],
     });
 
-    let host: string | undefined;
-    let port: number | undefined;
-
-    const agentUrl = this.getSettingFromEnv('OTEL_AGENT', false);
-
-    if (agentUrl) {
-      const agent = agentUrl.split(':');
-      host = agent[0];
-      port = parseInt(agent[1]) || undefined;
-    }
-
-    const exporter = new JaegerExporter({ host, port });
-    provider.addSpanProcessor(new SimpleSpanProcessor(exporter));
     provider.register();
   }
 
