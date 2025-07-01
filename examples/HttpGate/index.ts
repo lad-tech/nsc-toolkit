@@ -51,12 +51,15 @@ const upHttpGate = async (service: Service) => {
     message.meter.end();
   });
 
-  matchBatchEmitter.on('FibonacciNumber', messages => {
+  matchBatchEmitter.on('FibonacciNumber', async (messages, meter) => {
+    meter.start();
     logger.info(
       'Get new event "FibonacciNumber": ',
       messages.map(message => message.data),
     );
+    await meter.measure(fakeRequest, [1000], {}, { location: 'external', type: 'dbms', name: 'postgresql2' });
     messages.forEach(message => message.ack());
+    meter.end();
   });
 
   const fastify = Fastify();

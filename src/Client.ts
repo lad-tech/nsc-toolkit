@@ -84,6 +84,8 @@ export class Client<E extends Emitter = Emitter> extends Root {
   private async startBatchWatch(fetcher: StreamBatchMsgFetcher, listener: EventEmitter, eventName: string) {
     while (true) {
       const batch: Partial<EmitterStreamEvent<any>>[] = [];
+      const baggages: Baggage[] = [];
+
       const events = await fetcher.fetch();
 
       for await (const event of events) {
@@ -98,8 +100,22 @@ export class Client<E extends Emitter = Emitter> extends Root {
         message.nak = event.nak.bind(event);
 
         batch.push(message);
+
+        let baggage: Baggage | undefined;
+        if (event.headers) {
+          baggage = this.getBaggageFromNATSHeader(event.headers);
+          if (baggage) {
+            baggages.push(baggage);
+          }
+        }
+
+        message.meter = new Meter(eventName, baggage);
       }
-      if (batch.length > 0) listener.emit(eventName, batch);
+
+      if (batch.length > 0) {
+        const meter = new Meter(eventName, undefined, baggages);
+        listener.emit(eventName, batch, meter);
+      }
     }
   }
 
