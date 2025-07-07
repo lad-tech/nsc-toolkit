@@ -127,7 +127,7 @@ export class Client<E extends Emitter = Emitter> extends Root {
   public getListener<A extends keyof E>(
     serviceNameFrom: string,
     options?: GetListenerOptions | GetBatchListenerOptions,
-  ): ListenerBatch<E> | ListenerBatch<E> {
+  ): Listener<E> | ListenerBatch<E> {
     if (!this.events) {
       throw new Error('The service does not generate events');
     }
