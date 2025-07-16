@@ -178,7 +178,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
     const span = tracer.startSpan(func.name, undefined, context);
     try {
       const result = func.apply(funcContext, arg);
-      if (result.then) {
+      if (result?.then) {
         return result.then(
           (result: any) => {
             this.finishSpan(span, undefined, tag);
