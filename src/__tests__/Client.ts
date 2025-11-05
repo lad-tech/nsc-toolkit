@@ -71,19 +71,23 @@ describe('Testing Client class methods', () => {
 
     test('Successful subscription and event processing for a streaming event', () => {
       const payload = { data: { elapsed: 42 } };
-      jetstreamNextMock.mockResolvedValue({ data: codec.encode(payload.data), sid: '1', ack: jest.fn(), nak: jest.fn() });
+      jetstreamNextMock.mockResolvedValue({
+        data: codec.encode(payload.data),
+        sid: '1',
+        ack: jest.fn(),
+        nak: jest.fn(),
+      });
 
       const result = mathClient.getListener('Test');
-      const handler = event => {
+      const handler = (event: any) => {
         expect(event.data.elapsed).toBe(payload.data.elapsed);
         result.off('Elapsed', handler);
-      }
+      };
       result.on('Elapsed', handler);
-
     });
 
     test('Successful unsubscribe from the event', () => {
-      const subscribe = new PassThrough();
+      const subscribe: PassThrough & { unsubscribe?: jest.Mock } = new PassThrough();
       subscribe['unsubscribe'] = jest.fn();
       broker.subscribe.mockReturnValue(subscribe);
 
@@ -248,9 +252,18 @@ describe('Testing Client class methods', () => {
         expired: Date.now() - 1,
       });
 
-      const payload = { a: 5, b: 5 };
+      await expect(mathClient.fibonacci({ length: 5 })).rejects.toThrow();
+    });
 
-      await expect(mathClient.sum(payload)).rejects.toThrow();
+    test('If a method has own timeout, own timeout is more priority', async () => {
+      const mathClient = new MathClient(broker as any, {
+        spanId: '1',
+        traceId: '1',
+        traceFlags: 1,
+        expired: Date.now() - 1,
+      });
+
+      await mathClient.sum({ a: 5, b: 5 });
     });
 
     test('If the request returns an error, then an error is generated', async () => {

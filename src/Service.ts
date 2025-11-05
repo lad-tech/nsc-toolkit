@@ -334,7 +334,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
     this.rootSpans.set(newBaggage.traceId, span);
     return {
       ...newBaggage,
-      expired: this.getExpired(undefined, ownTimeout),
+      expired: this.getExpired(newBaggage.expired, ownTimeout),
     };
   }
 

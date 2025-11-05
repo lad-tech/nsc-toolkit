@@ -47,15 +47,15 @@ export class Root {
 
   protected getExpired(expired?: number, ownTimeout?: number) {
     try {
-      if (!expired) {
-        const timeout = ownTimeout || this.castToNumber(this.getSettingFromEnv('DEFAULT_RESPONSE_TIMEOUT'));
+      if (!expired && !ownTimeout) {
+        const timeout = this.castToNumber(this.getSettingFromEnv('DEFAULT_RESPONSE_TIMEOUT'));
         return Date.now() + timeout;
       }
       if (ownTimeout) {
-        const customExpired = Date.now() + ownTimeout;
-        return Math.min(customExpired, expired);
+        return Date.now() + ownTimeout;
       }
-      return expired;
+
+      return expired!;
     } catch (error) {
       this.logger.error(error);
       process.exit(1);
