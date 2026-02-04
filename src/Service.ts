@@ -1,4 +1,5 @@
 import { Root } from './Root';
+import type { KV } from 'nats';
 import { JSONCodec, Subscription, DebugEvents, Events, headers, MsgHdrs } from 'nats';
 import {
   Message,
@@ -17,6 +18,7 @@ import {
   dependencyStorageMetaKey,
   ConstructorDependencyKey,
   Tag,
+  kvBucketMetaKey,
 } from '.';
 import { NodeTracerProvider, BatchSpanProcessor } from '@opentelemetry/sdk-trace-node';
 import { resourceFromAttributes } from '@opentelemetry/resources';
@@ -32,6 +34,7 @@ import * as os from 'node:os';
 import { setTimeout } from 'node:timers/promises';
 import { promisify } from 'node:util';
 import { StreamManager } from './StreamManager';
+import { KvManager } from './KvManager';
 
 export class Service<E extends Emitter = Emitter> extends Root {
   public emitter = {} as E;
@@ -43,6 +46,8 @@ export class Service<E extends Emitter = Emitter> extends Root {
   private subscriptions: Subscription[] = [];
   private httpMethods = new Map<string, Method>();
   private rootSpans = new Map<string, Span>();
+  /** KV-бакеты по имени: заполняется в start() при наличии options.kvBuckets */
+  private kvBucketsMap?: Map<string, KV>;
 
   /**
    * Unique identifier NATS header for a message that will be used by the server apply
@@ -289,6 +294,18 @@ export class Service<E extends Emitter = Emitter> extends Root {
       instances.forEach((instance, key) => {
         const trap = this.getTrap(instance, tracer, baggage, tags.get(key));
         dependences[key] = new Proxy(instance, trap);
+      });
+    }
+
+    // Инъекция KV-бакетов по декоратору @kv('bucketName')
+    const kvBucketStorage: Map<string, string> | undefined = Reflect.getMetadata(kvBucketMetaKey, method.constructor);
+    if (kvBucketStorage?.size && this.kvBucketsMap) {
+      kvBucketStorage.forEach((bucketName, propertyName) => {
+        const bucket = this.kvBucketsMap!.get(bucketName);
+        if (bucket === undefined) {
+          throw new Error(`KV bucket "${bucketName}" not found; check kvBuckets in schema and that service was started with kvBuckets option`);
+        }
+        dependences[propertyName] = bucket;
       });
     }
 
@@ -578,6 +595,15 @@ export class Service<E extends Emitter = Emitter> extends Root {
           outputFormatter: this.options.loggerOutputFormatter,
         });
         await streamManager.createStreams();
+      }
+
+      if (this.options.kvBuckets && Object.keys(this.options.kvBuckets).length > 0) {
+        const kvManager = new KvManager({
+          broker: this.broker,
+          kvBuckets: this.options.kvBuckets,
+          outputFormatter: this.options.loggerOutputFormatter,
+        });
+        this.kvBucketsMap = await kvManager.createBuckets();
       }
 
       this.logger.info('Service successfully started!');

@@ -1,0 +1,47 @@
+---
+description: Паттерны библиотеки — Service, Method, Client, DI, schema
+globs: src/**/*.ts, examples/**/*.ts
+alwaysApply: false
+---
+
+# Паттерны nsc-toolkit
+
+## Описание сервиса (service.schema.json)
+
+- Источник правды для сервиса: методы, события, streamOptions, kvBuckets (опционально).
+- Изменения сервиса: сначала правки в `service.schema.json`, затем перегенерация через nsc-cli; бизнес-логика в методах не трогать при регенерации.
+- Методы описываются с `action`, `description`, `options` (useStream, cache, runTimeValidation, timeout), опционально `request`/`response` (JSON Schema).
+
+## Класс Service
+
+- Создаётся через `new Service<Emitter>({ name, brokerConnection?, methods, events?, kvBuckets?, cache?, loggerOutputFormatter?, gracefulShutdown? })`.
+- Методы — классы с `static settings` (из schema) и методом `handler(params) => Promise<...>`.
+- Для монолита: не передавать `brokerConnection`; использовать один брокер из корневого сервиса и передавать его в дочерние сервисы (см. `examples/HttpGate/start.mono.ts`).
+
+## Методы (BaseMethod)
+
+- Наследовать `BaseMethod`, задать `static settings = methods.MethodName` из schema.
+- Декоратор `@related` — обязательно на классе метода, если используются `@service`, `@instance` или `@kv`.
+- Внедрение другого сервиса: `@service(ClientClass)` на свойстве; внедрение репозитория/адаптера: `@instance(instance)` или DI через `@inject(symbol)`; внедрение KV-бакета: `@kv('bucketName')` (бакет объявляется в схеме в `kvBuckets`).
+- В методах использовать типы запроса/ответа из сгенерированных интерфейсов (например `SumRequest`, `SumResponse`).
+
+## Client
+
+- Наследовать `Client`, описать вызовы методов через приватный `request`. При наличии в схеме `kvBuckets` импортировать и передавать их в конструктор: `super({ ..., events, Ref, kvBuckets })`.
+- Клиенты создавать через `service.buildService(ClientClass)` для трассировок и монолитного режима.
+
+## DI-контейнер (Container, injector)
+
+- Ключи зависимостей — в `inversion.types.ts` (Symbol.for('Name')).
+- Привязка в `service.ts`: `container.symbol(key).to.Adapter(Class)`, `.to.Constant(obj)`, `.to.Service(ServiceClass)`, `.to.Singleton(...)`, `.to.Initializable(...)`.
+- В методах: `@inject(TYPES.SomeKey)` на свойстве или параметре конструктора.
+- Типы зависимостей: `service`, `adapter`, `constant` (см. `interfaces.ts` — DependencyType).
+
+## Потоки (streams)
+
+- Для передачи объектов в поток использовать `JsonToBufferTransform` и `BufferToJsonTransform` из `StreamOptions`.
+
+## Тесты
+
+- Тесты библиотеки в `src/__tests__/`; fixtures и моки в `src/__tests__/fixtures/`.
+- В Jest `testPathIgnorePatterns` включены `fixtures` — не искать тесты внутри fixtures.

@@ -4,6 +4,7 @@ import { Client } from '../../src/Client';
 import type { Baggage, CacheSettings } from '../../src/interfaces';
 import type { EmitterMathExternal, FibonacciRequest, SumRequest, SumResponse, SumStreamResponse } from './interfaces';
 import { events, methods, name, Ref } from './service.schema.json';
+// Если в схеме появится секция kvBuckets — добавить в импорт и в super: kvBuckets
 
 export default class ServiceMathClient extends Client<EmitterMathExternal> {
   constructor(broker: NatsConnection, baggage?: Baggage, cache?: CacheSettings) {

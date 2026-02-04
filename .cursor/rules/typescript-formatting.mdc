@@ -1,0 +1,35 @@
+---
+description: Форматирование и стиль кода (Prettier, ESLint), коммиты
+globs: "**/*.ts"
+alwaysApply: false
+---
+
+# TypeScript: форматирование и коммиты
+
+## Prettier (проект)
+
+- Одинарные кавычки (`singleQuote: true`), запятая в конце везде (`trailingComma: all`).
+- Без скобок у единственного аргумента стрелочной функции (`arrowParens: avoid`).
+- Пробелы внутри фигурных скобок объектов (`bracketSpacing: true`), пробелы, не табы.
+- Длина строки 120, точка с запятой в конце.
+
+## ESLint
+
+- Следовать текущему `.eslintrc.json`: object-shorthand always, object-curly-spacing always, jsx-quotes prefer-double.
+- Не включать отключённые в проекте правила (no-unused-vars, no-explicit-any и др. выключены намеренно).
+
+## Коммиты (commitlint)
+
+- Conventional Commits; заголовок до 120 символов.
+- Тип в нижнем регистре: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `build`, `ci`, `revert`, `debug`.
+- Scope в нижнем регистре; после типа пустая строка перед телом, перед footer — пустая строка.
+
+Пример: `feat(service): add stream options to schema`
+
+## Pre-commit (lefthook)
+
+- Для `*.{js,ts,jsx,tsx}`: `npx eslint --fix`.
+- Для `*.{ts,tsx}`: `npx tsc --noEmit`.
+- Сообщение коммита проверяется commitlint.
+
+При правках кода не нарушать эти проверки.

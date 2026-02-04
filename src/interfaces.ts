@@ -72,6 +72,23 @@ export interface GracefulShutdownAdditionalService {
   close: () => Promise<any>;
 }
 
+/** Опции KV-бакета по схеме сервиса (service.schema.json → kvBuckets) */
+export interface KvBucketOptions {
+  /** Глубина истории по ключу (1–64, по умолчанию 1) */
+  history?: number;
+  /** TTL значений в секундах */
+  ttl?: number;
+  /** Максимальный размер бакета в байтах */
+  max_bytes?: number;
+  /** Максимальный размер одного значения в байтах */
+  max_value_size?: number;
+  /** Хранилище: 'file' | 'memory' */
+  storage?: 'file' | 'memory';
+}
+
+/** Конфиг KV-бакетов: имя бакета → опции */
+export type KvBuckets = Record<string, KvBucketOptions>;
+
 export interface ClientParam<E extends Emitter = Emitter> {
   broker: NatsConnection;
   serviceName: string;
@@ -80,6 +97,8 @@ export interface ClientParam<E extends Emitter = Emitter> {
   loggerOutputFormatter?: Logs.OutputFormatter;
   events?: Events<E>;
   Ref?: object;
+  /** Опционально: конфиг KV-бакетов из схемы (для согласованности с сервисом) */
+  kvBuckets?: KvBuckets;
 }
 
 export interface GetListenerOptions {
@@ -100,6 +119,13 @@ export interface StreamManagerParam {
   serviceName: string;
   options: StreamOptions;
   broker: NatsConnection;
+  outputFormatter?: Logs.OutputFormatter;
+}
+
+/** Параметры для KvManager: брокер и конфиг бакетов из схемы */
+export interface KvManagerParam {
+  broker: NatsConnection;
+  kvBuckets: KvBuckets;
   outputFormatter?: Logs.OutputFormatter;
 }
 
@@ -150,6 +176,8 @@ export interface ServiceOptions<E extends Emitter> {
   brokerConnection?: NatsConnection;
   methods: Method[];
   events?: Events<E>;
+  /** Опционально: KV-бакеты — создаются/привязываются при start() */
+  kvBuckets?: KvBuckets;
   cache?: CacheSettings;
   loggerOutputFormatter?: Logs.OutputFormatter;
   gracefulShutdown?: {

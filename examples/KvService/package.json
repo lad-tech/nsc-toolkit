@@ -1,0 +1,15 @@
+{
+  "name": "kvservice",
+  "version": "1.0.0",
+  "description": "Example service using JetStream KV",
+  "main": "dist/start.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "rm -rf ./dist && npx tsc",
+    "example": "npm run build && node dist/example-usage.js",
+    "example:shared": "npm run build && (cd ../KvReaderService && npm run build) && node run-shared.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

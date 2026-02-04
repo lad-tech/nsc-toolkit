@@ -34,11 +34,22 @@ export class Client<E extends Emitter = Emitter> extends Root {
   private cache?: CacheSettings;
   private events?: Events<E>;
   private Ref?: object;
+  /** Конфиг KV-бакетов из схемы (для согласованности с сервисом; операции get/put — на стороне сервиса) */
+  private kvBuckets?: import('./interfaces').KvBuckets;
 
   private subscriptions = new Map<keyof E, Subscription | StreamSingleMsgFetcher>();
   private REQUEST_HTTP_SETTINGS_TIMEOUT = 1000; // ms
 
-  constructor({ broker, events, loggerOutputFormatter, serviceName, baggage, cache, Ref }: ClientParam<E>) {
+  constructor({
+    broker,
+    events,
+    loggerOutputFormatter,
+    serviceName,
+    baggage,
+    cache,
+    Ref,
+    kvBuckets,
+  }: ClientParam<E>) {
     super(broker, loggerOutputFormatter);
     this.logger.setLocation(serviceName);
     this.serviceName = serviceName;
@@ -46,6 +57,7 @@ export class Client<E extends Emitter = Emitter> extends Root {
     this.cache = cache;
     this.events = events;
     this.Ref = Ref;
+    this.kvBuckets = kvBuckets;
   }
 
   private async startWatch(

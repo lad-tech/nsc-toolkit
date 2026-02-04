@@ -11,6 +11,9 @@ const instanceMetaKey = Symbol('instance');
 
 export const dependencyStorageMetaKey = Symbol('dependency');
 
+/** Метаданные для инъекции KV-бакета: имя свойства метода → имя бакета */
+export const kvBucketMetaKey = Symbol('kvBucket');
+
 export const ServiceContainer: Map<string, DependenceStorage> = new Map();
 export const InstanceContainer: Map<string, InstanceStorage> = new Map();
 
@@ -79,5 +82,23 @@ export function inject(key: symbol) {
       target: typeof index === 'number' ? target : target.constructor,
       index,
     });
+  };
+}
+
+/**
+ * Декоратор для инъекции KV-бакета в метод сервиса.
+ * Имя бакета должно быть объявлено в service.schema.json → kvBuckets.
+ * В handler доступен this[bucketPropertyName] с API get/put/delete/watch.
+ */
+export function kv(bucketName: string) {
+  return function (target: any, propertyName: string): void {
+    let storage: Map<string, string>;
+    if (Reflect.hasMetadata(kvBucketMetaKey, target.constructor)) {
+      storage = Reflect.getMetadata(kvBucketMetaKey, target.constructor);
+    } else {
+      storage = new Map();
+      Reflect.defineMetadata(kvBucketMetaKey, storage, target.constructor);
+    }
+    storage.set(propertyName, bucketName);
   };
 }
