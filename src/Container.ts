@@ -26,17 +26,10 @@ type SingletonValue = { value: Constant; init?: boolean };
 class Container {
   private readonly container = new Map<symbol, ContainerValue>();
   private readonly singletons = new Map<symbol, SingletonValue>();
+  private readonly initializedKeys = new Set<symbol>();
 
   private buildDependency(key: symbol) {
-    const deepDependency = this.get(key);
-
-    if (this.isAdapterDependency(deepDependency.dependency)) {
-      return new deepDependency.dependency.value(...deepDependency.constructor);
-    }
-
-    if (this.isConstantDependency(deepDependency.dependency)) {
-      return deepDependency.dependency.value;
-    }
+    return this.getInstance(key);
   }
 
   private inject(dependency: ContainerValue): { dependency: ContainerValue; constructor: Array<unknown> } {
@@ -179,11 +172,11 @@ class Container {
   public async initDependencies() {
     const initialized: InitializableService[] = [];
     for await (const [key, dependency] of this.container) {
-      if (this.isAdapterDependency(dependency) && dependency.options?.init && !this.singletons.has(key)) {
+      if (this.isAdapterDependency(dependency) && dependency.options?.init && !this.initializedKeys.has(key)) {
         const instance = this.getInstance<InitializableService>(key);
         await instance?.init();
         initialized.push(instance!);
-        this.singletons.set(key, { value: instance, init: dependency.options?.init });
+        this.initializedKeys.add(key);
       }
     }
     return initialized;
