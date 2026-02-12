@@ -1,6 +1,9 @@
 name: Main workflow
 on:
   push
+permissions:
+  id-token: write  # Required for OIDC
+  contents: read
 env:
   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
