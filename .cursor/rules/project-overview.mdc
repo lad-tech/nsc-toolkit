@@ -1,0 +1,30 @@
+---
+description: Обзор проекта nsc-toolkit, стек и общие соглашения
+alwaysApply: true
+---
+
+# nsc-toolkit — обзор проекта
+
+## Назначение
+
+**nsc-toolkit** (NATS service creator toolkit) — библиотека для создания сервис-ориентированной архитектуры вокруг NATS. Минимум зависимостей, описание сервисов в JSON, кодогенерация через [nsc-cli](https://github.com/lad-tech/nsc-cli).
+
+## Стек и окружение
+
+- **Язык**: TypeScript (strictNullChecks, experimentalDecorators, emitDecoratorMetadata)
+- **Сборка**: `tsc`, выход в `dist/`, типы в `dist/types/`
+- **Тесты**: Jest (ts-jest), тесты в `src/__tests__/`, fixtures в `src/__tests__/fixtures/`
+- **Линтинг**: ESLint + Prettier (интеграция в pre-commit через lefthook)
+- **Коммиты**: Commitlint (conventional commits), типы: feat, fix, docs, style, refactor, perf, test, chore, build, ci, revert, debug
+
+## Структура репозитория
+
+- **src/** — код библиотеки (публичный API через `src/index.ts`)
+- **examples/** — примеры сервисов (HttpGate, LogicService, MathService); не входят в сборку
+- Конфиги: `.eslintrc.json`, `.prettierrc.json`, `commitlint.config.js`, `tsconfig.json`, `lefthook.yml`
+
+## Важно при изменениях
+
+- Не ломать публичный API: экспорты только из `src/index.ts`.
+- Примеры в `examples/` — референс по использованию; при добавлении фич учитывать их.
+- Перед коммитом: `npx eslint --fix`, `npx tsc --noEmit`, commitlint для сообщения коммита.

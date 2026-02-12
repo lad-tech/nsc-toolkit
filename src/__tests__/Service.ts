@@ -77,6 +77,40 @@ describe('Testing Service class methods', () => {
     });
   });
 
+  describe('KV buckets', () => {
+    const kvMock = {};
+    const brokerWithKv = {
+      subscribe: jest.fn(),
+      request: jest.fn(),
+      drain: jest.fn(),
+      jetstreamManager: jest.fn().mockResolvedValue(jsmManagerMock),
+      jetstream: jest.fn().mockResolvedValue({
+        views: {
+          kv: jest.fn().mockResolvedValue(kvMock),
+        },
+      }),
+      status: () => brokerEvents,
+      publish: jest.fn(),
+    };
+
+    test('Service with kvBuckets creates buckets on start', async () => {
+      createServerMock.mockReturnValue(getHttpServerMock());
+      jsmManagerMock.streams.info.mockResolvedValue({});
+      jsmManagerMock.streams.update.mockResolvedValue('Ok');
+      const serviceWithKv = new Service<EmitterMath>({
+        name,
+        brokerConnection: brokerWithKv as any,
+        methods: [],
+        events,
+        kvBuckets: { cache: { history: 1, ttl: 3600 } },
+      });
+      await expect(serviceWithKv.start()).resolves.not.toThrow();
+      expect(brokerWithKv.jetstream).toHaveBeenCalled();
+      const js = await brokerWithKv.jetstream();
+      expect(js.views.kv).toHaveBeenCalledWith('cache', expect.any(Object));
+    });
+  });
+
   describe('Successful processing of requests', () => {
     test('Request do not stream, response do not stream', async () => {
       const request = { payload: { a: 5, b: 5 } };

@@ -1,0 +1,34 @@
+{
+  "name": "Kv",
+  "description": "Example service using JetStream Key-Value bucket",
+  "methods": {
+    "GetSet": {
+      "action": "getset",
+      "description": "Get or set value in KV bucket by key",
+      "options": {},
+      "request": {
+        "type": "object",
+        "properties": {
+          "key": { "type": "string" },
+          "value": { "type": "string" },
+          "revision": { "type": "number", "description": "при get — читать указанную версию ключа" }
+        },
+        "required": ["key"]
+      },
+      "response": {
+        "type": "object",
+        "properties": {
+          "key": { "type": "string" },
+          "value": { "type": "string" },
+          "revision": { "type": "number" }
+        }
+      }
+    }
+  },
+  "kvBuckets": {
+    "cache": {
+      "history": 3,
+      "ttl": 3600
+    }
+  }
+}
