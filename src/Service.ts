@@ -547,8 +547,12 @@ export class Service<E extends Emitter = Emitter> extends Root {
         }
 
         const subject = `${this.serviceName}.${Method.settings.action}`;
+        const isRace = Method.settings.options?.race;
+        const isNotWebStreamRequest = !Method.settings.options?.useStream?.request;
+        const isNotWebStreamResponse = !Method.settings.options?.useStream?.response;
+        const queue = isRace && isNotWebStreamRequest && isNotWebStreamResponse ? {} : { queue: this.serviceName };
+        const subscription = this.broker.subscribe(subject, queue);
 
-        const subscription = this.broker.subscribe(subject, { queue: this.serviceName });
         this.subscriptions.push(subscription);
         for await (const message of subscription) {
           const { payload, baggage } = JSONCodec<Message<unknown>>().decode(message.data);
