@@ -15,6 +15,7 @@ export interface MethodOptions {
     request?: boolean;
     response?: boolean;
   };
+  race?: boolean;
 }
 
 export interface MethodSettings {
