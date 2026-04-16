@@ -285,6 +285,10 @@ export class Client<E extends Emitter = Emitter> extends Root {
     return { ip, port };
   }
 
+  public async getHTTPSocket() {
+    return this.getHTTPSettingsFromRemoteService();
+  }
+
   private isStream(data: unknown | Readable): data is Readable {
     return data instanceof Readable;
   }
