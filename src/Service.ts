@@ -558,7 +558,9 @@ export class Service<E extends Emitter = Emitter> extends Root {
           const { payload, baggage } = JSONCodec<Message<unknown>>().decode(message.data);
           this.handled(payload, Method, baggage)
             .then(result => {
-              message.respond(this.buildMessage(result));
+              if (!isRace || result.payload) {
+                message.respond(this.buildMessage(result));
+              }
             })
             .catch(error => {
               message.respond(this.buildMessage({ error: error.message }));
