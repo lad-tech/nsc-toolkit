@@ -309,61 +309,72 @@ export class Client<E extends Emitter = Emitter> extends Root {
     options: MethodOptions,
     timeout: number,
   ): Promise<Message<any>> {
-    return new Promise(async resolve => {
+    try {
       const { ip, port } = await this.getHTTPSettingsFromRemoteService();
-      const serviceActionPath = subject.split('.');
-      const headersFromBaggage = this.convertBaggaggeToExternalHeader(message.baggage);
 
-      const headers = {
-        'Content-Type': this.isStream(message.payload) ? 'application/octet-stream' : 'application/json',
-        ...headersFromBaggage,
-      };
-      if (!this.isStream(message.payload)) {
-        headers['Content-Length'] = Buffer.byteLength(JSON.stringify(message.payload));
-      }
-      const request = http.request(
-        {
-          host: ip,
-          port,
-          path: `/${serviceActionPath.join('/')}`,
-          method: 'POST',
-          headers,
-          timeout,
-        },
-        async response => {
-          if (options?.useStream?.response && response.statusCode !== 500) {
-            resolve({ payload: response });
-            return;
-          }
+      return await new Promise(resolve => {
+        const serviceActionPath = subject.split('.');
+        const headersFromBaggage = this.convertBaggaggeToExternalHeader(message.baggage);
 
-          const data: Buffer[] = [];
-          for await (const chunk of response) {
-            data.push(chunk);
-          }
+        const headers = {
+          'Content-Type': this.isStream(message.payload) ? 'application/octet-stream' : 'application/json',
+          ...headersFromBaggage,
+        };
 
-          const responseDataString = Buffer.concat(data).toString();
-          try {
-            resolve(JSON.parse(responseDataString));
-          } catch (error) {
-            const errorMessage = new Error(`${error?.message}. Subject: ${subject} `);
-            resolve(this.buildErrorMessage(errorMessage));
-          }
-        },
-      );
+        if (!this.isStream(message.payload)) {
+          headers['Content-Length'] = Buffer.byteLength(JSON.stringify(message.payload));
+        }
 
-      request.on('error', error => {
-        const errorMessage = new Error(`${error?.message}. Subject: ${subject} `);
-        resolve(this.buildErrorMessage(errorMessage));
+        const request = http.request(
+          {
+            host: ip,
+            port,
+            path: `/${serviceActionPath.join('/')}`,
+            method: 'POST',
+            headers,
+            timeout,
+          },
+          async response => {
+            if (options?.useStream?.response && response.statusCode !== 500) {
+              resolve({ payload: response });
+              return;
+            }
+
+            const data: Buffer[] = [];
+            for await (const chunk of response) {
+              data.push(chunk);
+            }
+
+            const responseDataString = Buffer.concat(data).toString();
+            try {
+              resolve(JSON.parse(responseDataString));
+            } catch (error) {
+              const errorMessage = new Error(`${error?.message}. Subject: ${subject} `);
+              resolve(this.buildErrorMessage(errorMessage));
+            }
+          },
+        );
+
+        request.on('error', error => {
+          const errorMessage = new Error(`${error?.message}. Subject: ${subject} `);
+          resolve(this.buildErrorMessage(errorMessage));
+        });
+
+        if (this.isStream(message.payload)) {
+          message.payload.on('error', error => {
+            request.destroy(error);
+          });
+          message.payload.pipe(request);
+          return;
+        }
+
+        request.write(JSON.stringify(message.payload));
+        request.end();
       });
-
-      if (this.isStream(message.payload)) {
-        message.payload.pipe(request);
-        return;
-      }
-
-      request.write(JSON.stringify(message.payload));
-      request.end();
-    });
+    } catch (error) {
+      const errorMessage = new Error(`${error?.message}. Subject: ${subject} `);
+      return this.buildErrorMessage(errorMessage);
+    }
   }
 
   private isJsMessage(message: JsMsg | Msg): message is JsMsg {
