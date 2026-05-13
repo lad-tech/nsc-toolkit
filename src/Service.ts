@@ -366,6 +366,10 @@ export class Service<E extends Emitter = Emitter> extends Root {
   }
 
   private makeHttpSingleResponse(response: ServerResponse, data: Message) {
+    if (response.headersSent || response.writableEnded || response.destroyed) {
+      return;
+    }
+
     const isError = !data.payload && data.error && data.error.message;
     const responseData = JSON.stringify(data);
 
@@ -403,6 +407,12 @@ export class Service<E extends Emitter = Emitter> extends Root {
     data.payload.on('error', error => {
       this.logger.error(error);
     });
+
+    if (response.headersSent || response.writableEnded || response.destroyed) {
+      data.payload.destroy();
+      return Promise.resolve();
+    }
+
     response.writeHead(200, {
       'Content-Type': 'application/octet-stream',
     });
@@ -432,7 +442,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
         if (Method.settings.options?.useStream?.request) {
           const result = await this.handled(request, Method, baggage);
           if (Method.settings.options.useStream.response && result.payload instanceof Readable) {
-            this.makeHttpStreamResponse(response, result as Message<Readable>);
+            await this.makeHttpStreamResponse(response, result as Message<Readable>);
             return;
           }
           this.makeHttpSingleResponse(response, result);
@@ -451,6 +461,9 @@ export class Service<E extends Emitter = Emitter> extends Root {
         this.makeHttpSingleResponse(response, result);
       } catch (error: unknown) {
         this.logger.error(error);
+        if (response.headersSent || response.writableEnded || response.destroyed) {
+          return;
+        }
         if (error instanceof Error) {
           this.makeHttpSingleResponse(response, this.buildErrorMessage(error));
           return;
