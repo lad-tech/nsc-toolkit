@@ -75,6 +75,7 @@ export class Client<E extends Emitter = Emitter> extends Root {
       if (this.isJsMessage(event)) {
         message.ack = event.ack.bind(event);
         message.nak = event.nak.bind(event);
+        message.inProgress = event.working.bind(event);
       }
 
       listener.emit(eventName, message);
@@ -98,6 +99,7 @@ export class Client<E extends Emitter = Emitter> extends Root {
         const message: Partial<EmitterStreamEvent<any>> = { data };
         message.ack = event.ack.bind(event);
         message.nak = event.nak.bind(event);
+        message.inProgress = event.working.bind(event);
 
         batch.push(message);
 

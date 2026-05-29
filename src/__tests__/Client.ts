@@ -71,19 +71,43 @@ describe('Testing Client class methods', () => {
 
     test('Successful subscription and event processing for a streaming event', () => {
       const payload = { data: { elapsed: 42 } };
+      const inProgressMock = jest.fn();
       jetstreamNextMock.mockResolvedValue({
         data: codec.encode(payload.data),
         sid: '1',
         ack: jest.fn(),
         nak: jest.fn(),
+        working: inProgressMock,
       });
 
       const result = mathClient.getListener('Test');
       const handler = (event: any) => {
         expect(event.data.elapsed).toBe(payload.data.elapsed);
+        event.inProgress();
+        expect(inProgressMock).toBeCalledTimes(1);
         result.off('Elapsed', handler);
       };
       result.on('Elapsed', handler);
+    });
+
+    test('Creates consumer with maxDeliver setting', async () => {
+      const payload = { data: { elapsed: 42 } };
+      jetstreamNextMock.mockResolvedValue({
+        data: codec.encode(payload.data),
+        sid: '1',
+        ack: jest.fn(),
+        nak: jest.fn(),
+        working: jest.fn(),
+      });
+
+      const result = mathClient.getListener('Test', { maxDeliver: 7 });
+      const handler = () => result.off('Elapsed', handler);
+      await result.on('Elapsed', handler);
+
+      expect(jetstreamManagerConsumersAdd).toBeCalledWith(
+        'TestStream',
+        expect.objectContaining({ max_deliver: 7 }),
+      );
     });
 
     test('Successful unsubscribe from the event', () => {
@@ -119,9 +143,9 @@ describe('Testing Client class methods', () => {
         done();
       });
 
-      subscribe.write({ data: codec.encode(payload.data), sid: '1', ack: jest.fn(), nak: jest.fn() });
-      subscribe.write({ data: codec.encode(payload.data), sid: '2', ack: jest.fn(), nak: jest.fn() });
-      subscribe.write({ data: codec.encode(payload.data), sid: '3', ack: jest.fn(), nak: jest.fn() });
+      subscribe.write({ data: codec.encode(payload.data), sid: '1', ack: jest.fn(), nak: jest.fn(), working: jest.fn() });
+      subscribe.write({ data: codec.encode(payload.data), sid: '2', ack: jest.fn(), nak: jest.fn(), working: jest.fn() });
+      subscribe.write({ data: codec.encode(payload.data), sid: '3', ack: jest.fn(), nak: jest.fn(), working: jest.fn() });
       subscribe.end();
     });
   });
