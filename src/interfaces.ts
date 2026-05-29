@@ -88,6 +88,7 @@ export interface GetListenerOptions {
   deliver?: 'all' | 'new';
   maxPending?: number;
   maxAckWaiting?: number;
+  maxDeliver?: number;
 }
 
 export interface GetBatchListenerOptions extends GetListenerOptions {
@@ -112,6 +113,7 @@ export interface EmitterEvent<D extends Record<string, any>> {
 export interface EmitterStreamEvent<D extends Record<string, any>> extends EmitterEvent<D> {
   ack: () => void;
   nak: (millis: number) => void;
+  inProgress: () => void;
   meter: EventMeter;
 }
 

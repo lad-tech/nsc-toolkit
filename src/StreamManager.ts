@@ -141,6 +141,11 @@ export class StreamManager extends Root {
       options.ackWait(setting.maxAckWaiting);
     }
 
+    const maxDeliver = setting?.maxDeliver;
+    if (maxDeliver !== undefined) {
+      options.maxDeliver(maxDeliver);
+    }
+
     if (setting?.queue) {
       options.queue(setting.queue);
     }
