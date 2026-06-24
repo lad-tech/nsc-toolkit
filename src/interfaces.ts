@@ -3,6 +3,7 @@
 import type { Logs } from '@lad-tech/toolbelt';
 import type { NatsConnection } from 'nats';
 import type { Client } from './Client';
+import type { Service } from './Service';
 
 export interface MethodOptions {
   useStream?: {
@@ -155,6 +156,7 @@ export interface ServiceOptions<E extends Emitter> {
   events?: Events<E>;
   cache?: CacheSettings;
   loggerOutputFormatter?: Logs.OutputFormatter;
+  middleware?: ServiceMiddlewareOptions;
   gracefulShutdown?: {
     additional?: GracefulShutdownAdditionalService[];
     timeout?: number;
@@ -183,6 +185,27 @@ export interface CacheService {
   set: (key: string, value: string, expired?: number) => Promise<void>;
   get: (key: string) => Promise<string | undefined>;
   delete: (key: string) => Promise<void>;
+}
+
+export interface MiddlewarePoint {
+  before?: symbol[];
+  after?: symbol[];
+}
+
+export type ServiceMiddlewareOptions = Partial<Record<DependencyType, MiddlewarePoint>>;
+
+export interface ServiceMiddlewareContext<C = Client, S = Service> {
+  client: C;
+  service: S;
+  method: string;
+  params: unknown;
+  result?: unknown;
+  error?: unknown;
+  baggage?: Baggage;
+}
+
+export interface Middleware<C extends ServiceMiddlewareContext = ServiceMiddlewareContext> {
+  run(context: C): Promise<C | void> | C | void;
 }
 
 export type InitializableService = GracefulShutdownAdditionalService & {
