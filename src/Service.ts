@@ -17,7 +17,10 @@ import {
   dependencyStorageMetaKey,
   ConstructorDependencyKey,
   Tag,
+  Middleware,
+  ServiceMiddlewareContext,
 } from '.';
+import { Client } from './Client';
 import { NodeTracerProvider, BatchSpanProcessor } from '@opentelemetry/sdk-trace-node';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
@@ -350,7 +353,88 @@ export class Service<E extends Emitter = Emitter> extends Root {
   }
 
   public buildService<C extends ClientService>(Client: C, baggage?: Baggage) {
-    return new Client(this.broker, baggage, this.options.cache, this.options.loggerOutputFormatter) as InstanceType<C>;
+    const client = new Client(this.broker, baggage, this.options.cache, this.options.loggerOutputFormatter) as InstanceType<C> &
+      Client;
+    return this.withServiceMiddleware(client, baggage) as InstanceType<C>;
+  }
+
+  public getCache() {
+    return this.options.cache?.service;
+  }
+
+  private async runMiddleware<C extends ServiceMiddlewareContext>(middlewares: symbol[] = [], context: C) {
+    for (const key of middlewares) {
+      const middleware = container.getInstance<Middleware<C>>(key);
+      const result = await middleware.run(context);
+
+      if (result) {
+        Object.assign(context, result);
+      }
+    }
+  }
+
+  private buildMiddlewareErrorResult(error: unknown) {
+    return {
+      error: {
+        message: error instanceof Error ? error.message : String(error),
+      },
+    };
+  }
+
+  private isClientServiceMethod(target: Client, propKey: string | symbol) {
+    if (typeof propKey !== 'string') {
+      return false;
+    }
+
+    let prototype = Object.getPrototypeOf(target);
+    while (prototype && prototype !== Client.prototype) {
+      if (Object.prototype.hasOwnProperty.call(prototype, propKey)) {
+        return true;
+      }
+
+      prototype = Object.getPrototypeOf(prototype);
+    }
+
+    return false;
+  }
+
+  private withServiceMiddleware<C extends Client>(client: C, baggage?: Baggage): C {
+    const middlewares = this.options.middleware?.[DependencyType.SERVICE];
+    if (!middlewares) {
+      return client;
+    }
+
+    return new Proxy(client, {
+      get: (target, propKey, receiver) => {
+        const method = Reflect.get(target, propKey, receiver);
+        if (typeof method !== 'function' || !this.isClientServiceMethod(target, propKey)) {
+          return method;
+        }
+
+        return async (params: unknown) => {
+          const context: ServiceMiddlewareContext<C, Service> = {
+            client,
+            service: this,
+            method: String(propKey),
+            params,
+            baggage,
+          };
+
+          await this.runMiddleware(middlewares.before, context);
+
+          try {
+            context.result = await method.call(target, context.params);
+          } catch (error) {
+            context.error = error;
+            context.result = this.buildMiddlewareErrorResult(error);
+          }
+
+          await this.runMiddleware(middlewares.after, context);
+
+          return context.result;
+        };
+      },
+    });
   }
 
   /**

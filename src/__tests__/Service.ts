@@ -1,4 +1,4 @@
-import { Service, BaseMethod } from '../';
+import { Service, BaseMethod, Client, DependencyType, container, inject, ServiceMiddlewareContext } from '../';
 import { EmitterMath } from '../../examples/MathService/interfaces';
 import { name, events, methods } from './fixtures/MathService/math.service.json';
 import * as http from 'http';
@@ -307,6 +307,122 @@ describe('Testing Service class methods', () => {
       mathService.endRootSpan(baggage.traceId);
 
       expect(endSpan).toBeCalled();
+    });
+
+    test('Successfully runs service middleware with injected dependencies', async () => {
+      const beforeMiddlewareKey = Symbol('beforeMiddleware');
+      const secondBeforeMiddlewareKey = Symbol('secondBeforeMiddleware');
+      const afterMiddlewareKey = Symbol('afterMiddleware');
+      const dependencyKey = Symbol('middlewareDependency');
+      const dependency = { tenantId: 'tenant-1', calls: [] as string[] };
+      const cache = { service: { set: jest.fn(), get: jest.fn(), delete: jest.fn() }, timeout: 1000 };
+      const baggage = { spanId: '1', traceId: '1', traceFlags: 1, requestId: 'request-1' };
+
+      class MiddlewareTestClient extends Client {
+        constructor(brokerConnection: any, clientBaggage: any, clientCache: any) {
+          super({ broker: brokerConnection, serviceName: name, baggage: clientBaggage, cache: clientCache });
+        }
+
+        public async sum(payload: any) {
+          return this.request(`${name}.${methods.Sum.action}`, payload, methods.Sum as any);
+        }
+      }
+
+      class BeforeMiddleware {
+        @inject(dependencyKey) private dependency: typeof dependency;
+
+        public run(context: ServiceMiddlewareContext) {
+          this.dependency.calls.push('before');
+          context.params = { ...(context.params as any), tenantId: this.dependency.tenantId, a: 6 };
+        }
+      }
+
+      class SecondBeforeMiddleware {
+        public run(context: ServiceMiddlewareContext) {
+          context.params = { ...(context.params as any), b: 7 };
+        }
+      }
+
+      class AfterMiddleware {
+        @inject(dependencyKey) private dependency: typeof dependency;
+
+        public run(context: ServiceMiddlewareContext<any, Service>) {
+          this.dependency.calls.push('after');
+          expect(context.service.getCache()).toBe(cache.service);
+          expect(context.method).toBe('sum');
+          expect(context.baggage).toBe(baggage);
+          context.result = { ...(context.result as any), tenantId: this.dependency.tenantId };
+        }
+      }
+
+      container.bind(dependencyKey, DependencyType.CONSTANT, dependency);
+      container.bind(beforeMiddlewareKey, DependencyType.ADAPTER, BeforeMiddleware);
+      container.bind(secondBeforeMiddlewareKey, DependencyType.ADAPTER, SecondBeforeMiddleware);
+      container.bind(afterMiddlewareKey, DependencyType.ADAPTER, AfterMiddleware);
+
+      broker.request.mockImplementationOnce((subject: string, data: Uint8Array) => {
+        const message = codec.decode(data) as any;
+        expect(message.payload).toEqual({ a: 6, b: 7, tenantId: dependency.tenantId });
+        return Promise.resolve({ data: codec.encode({ payload: { result: 13 } }) });
+      });
+
+      const mathService = new Service({
+        name,
+        brokerConnection: broker as any,
+        methods: [],
+        cache,
+        middleware: {
+          service: {
+            before: [beforeMiddlewareKey, secondBeforeMiddlewareKey],
+            after: [afterMiddlewareKey],
+          },
+        },
+      });
+
+      const result = await mathService.buildService(MiddlewareTestClient as any, baggage).sum({ a: 1, b: 2 });
+
+      expect(result).toEqual({ result: 13, tenantId: dependency.tenantId });
+      expect(dependency.calls).toEqual(['before', 'after']);
+    });
+
+    test('Successfully runs service after middleware when client method throws', async () => {
+      const afterMiddlewareKey = Symbol('errorAfterMiddleware');
+
+      class MiddlewareTestClient extends Client {
+        constructor(brokerConnection: any, baggage: any, cache: any) {
+          super({ broker: brokerConnection, serviceName: name, baggage, cache });
+        }
+
+        public async sum(payload: any) {
+          return this.request(`${name}.${methods.Sum.action}`, payload, methods.Sum as any);
+        }
+      }
+
+      class ErrorAfterMiddleware {
+        public run(context: ServiceMiddlewareContext) {
+          expect(context.error).toBeInstanceOf(Error);
+          context.result = { handled: true, message: (context.result as any).error.message };
+        }
+      }
+
+      container.bind(afterMiddlewareKey, DependencyType.ADAPTER, ErrorAfterMiddleware);
+      broker.request.mockResolvedValueOnce({ data: codec.encode({ error: { message: 'Remote service error' } }) });
+
+      const mathService = new Service({
+        name,
+        brokerConnection: broker as any,
+        methods: [],
+        middleware: {
+          service: {
+            after: [afterMiddlewareKey],
+          },
+        },
+      });
+
+      await expect(mathService.buildService(MiddlewareTestClient as any).sum({ a: 1, b: 2 })).resolves.toEqual({
+        handled: true,
+        message: 'Remote service error',
+      });
     });
 
     test('Successfully injecting a service as a dependency', async () => {
