@@ -69,7 +69,7 @@ describe('Testing Client class methods', () => {
       subscribe.write({ data: codec.encode(payload.data) });
     });
 
-    test('Successful subscription and event processing for a streaming event', () => {
+    test('Successful subscription and event processing for a streaming event', async () => {
       const payload = { data: { elapsed: 42 } };
       const inProgressMock = jest.fn();
       jetstreamNextMock.mockResolvedValue({
@@ -78,16 +78,24 @@ describe('Testing Client class methods', () => {
         ack: jest.fn(),
         nak: jest.fn(),
         working: inProgressMock,
+        info: { deliveryCount: 2 },
       });
 
       const result = mathClient.getListener('Test');
+      let resolveReceived!: () => void;
+      const received = new Promise<void>(resolve => {
+        resolveReceived = resolve;
+      });
       const handler = (event: any) => {
         expect(event.data.elapsed).toBe(payload.data.elapsed);
+        expect(event.deliveryCount).toBe(2);
         event.inProgress();
         expect(inProgressMock).toBeCalledTimes(1);
         result.off('Elapsed', handler);
+        resolveReceived();
       };
-      result.on('Elapsed', handler);
+      await result.on('Elapsed', handler);
+      await received;
     });
 
     test('Creates consumer with maxDeliver setting', async () => {
@@ -98,16 +106,14 @@ describe('Testing Client class methods', () => {
         ack: jest.fn(),
         nak: jest.fn(),
         working: jest.fn(),
+        info: { deliveryCount: 1 },
       });
 
       const result = mathClient.getListener('Test', { maxDeliver: 7 });
       const handler = () => result.off('Elapsed', handler);
       await result.on('Elapsed', handler);
 
-      expect(jetstreamManagerConsumersAdd).toBeCalledWith(
-        'TestStream',
-        expect.objectContaining({ max_deliver: 7 }),
-      );
+      expect(jetstreamManagerConsumersAdd).toBeCalledWith('TestStream', expect.objectContaining({ max_deliver: 7 }));
     });
 
     test('Successful unsubscribe from the event', () => {
@@ -140,12 +146,34 @@ describe('Testing Client class methods', () => {
 
       result.on('Elapsed', event => {
         expect(event.length).toBe(3);
+        expect(event.map(message => message.deliveryCount)).toEqual([1, 2, 3]);
         done();
       });
 
-      subscribe.write({ data: codec.encode(payload.data), sid: '1', ack: jest.fn(), nak: jest.fn(), working: jest.fn() });
-      subscribe.write({ data: codec.encode(payload.data), sid: '2', ack: jest.fn(), nak: jest.fn(), working: jest.fn() });
-      subscribe.write({ data: codec.encode(payload.data), sid: '3', ack: jest.fn(), nak: jest.fn(), working: jest.fn() });
+      subscribe.write({
+        data: codec.encode(payload.data),
+        sid: '1',
+        ack: jest.fn(),
+        nak: jest.fn(),
+        working: jest.fn(),
+        info: { deliveryCount: 1 },
+      });
+      subscribe.write({
+        data: codec.encode(payload.data),
+        sid: '2',
+        ack: jest.fn(),
+        nak: jest.fn(),
+        working: jest.fn(),
+        info: { deliveryCount: 2 },
+      });
+      subscribe.write({
+        data: codec.encode(payload.data),
+        sid: '3',
+        ack: jest.fn(),
+        nak: jest.fn(),
+        working: jest.fn(),
+        info: { deliveryCount: 3 },
+      });
       subscribe.end();
     });
   });

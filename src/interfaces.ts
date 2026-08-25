@@ -115,6 +115,8 @@ export interface EmitterStreamEvent<D extends Record<string, any>> extends Emitt
   ack: () => void;
   nak: (millis: number) => void;
   inProgress: () => void;
+  /** 1-based JetStream delivery attempt number. */
+  deliveryCount: number;
   meter: EventMeter;
 }
 

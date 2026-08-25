@@ -76,6 +76,7 @@ export class Client<E extends Emitter = Emitter> extends Root {
         message.ack = event.ack.bind(event);
         message.nak = event.nak.bind(event);
         message.inProgress = event.working.bind(event);
+        message.deliveryCount = event.info.deliveryCount;
       }
 
       listener.emit(eventName, message);
@@ -100,6 +101,7 @@ export class Client<E extends Emitter = Emitter> extends Root {
         message.ack = event.ack.bind(event);
         message.nak = event.nak.bind(event);
         message.inProgress = event.working.bind(event);
+        message.deliveryCount = event.info.deliveryCount;
 
         batch.push(message);
 
