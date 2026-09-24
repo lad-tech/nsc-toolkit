@@ -27,7 +27,7 @@ import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
 import { Tracer, Context, Span, trace, SpanKind } from '@opentelemetry/api';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { IncomingHttpHeaders, ServerResponse } from 'node:http';
-import { Readable, Transform } from 'node:stream';
+import { Readable, Transform, finished } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { Logs } from '@lad-tech/toolbelt';
 import * as http from 'node:http';
@@ -35,6 +35,7 @@ import * as os from 'node:os';
 import { setTimeout } from 'node:timers/promises';
 import { promisify } from 'node:util';
 import { StreamManager } from './StreamManager';
+import { createMethodContext } from './MethodContext';
 
 export class Service<E extends Emitter = Emitter> extends Root {
   public emitter = {} as E;
@@ -575,6 +576,8 @@ export class Service<E extends Emitter = Emitter> extends Root {
 
     const nextBaggage = this.getNextBaggage(span, baggage);
 
+    const invocation = createMethodContext(baggage?.expired);
+    let streaming = false;
     try {
       const requestedDependencies = this.createObjectWithDependencies(Method, tracer, nextBaggage);
       const context = this.createMethodContext(Method, requestedDependencies);
@@ -582,7 +585,14 @@ export class Service<E extends Emitter = Emitter> extends Root {
       context['logger'] = logger;
       context['emitter'] = this.getWrappedEmitter(nextBaggage);
 
-      const response = await context.handler.call(context, payload);
+      const response = await context.handler.call(context, payload, invocation.context);
+      if (Method.settings.options?.useStream?.response && response instanceof Readable) {
+        const cleanup = finished(response, { readable: true, writable: false }, () => {
+          invocation.dispose();
+          cleanup();
+        });
+        streaming = true;
+      }
       const result = {
         payload: response,
       };
@@ -594,6 +604,10 @@ export class Service<E extends Emitter = Emitter> extends Root {
       logger.error(this.createErrorMessageForLogger(error));
       this.finishSpan(span, error);
       return this.buildErrorMessage(error);
+    } finally {
+      if (!streaming) {
+        invocation.dispose();
+      }
     }
   }
 
