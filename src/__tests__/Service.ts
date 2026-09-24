@@ -79,7 +79,7 @@ describe('Testing Service class methods', () => {
 
   describe('Successful processing of requests', () => {
     test('Request do not stream, response do not stream', async () => {
-      const request = { payload: { a: 5, b: 5 } };
+      const request = { payload: { a: 5, b: 5 }, baggage: { expired: Date.now() - 1 } };
       const response = { result: request.payload.a + request.payload.b };
 
       const handler = jest.fn().mockResolvedValue(response);
@@ -99,13 +99,15 @@ describe('Testing Service class methods', () => {
       subscription.end();
       await setTimeout(1);
       expect(respond).toBeCalledWith(codec.encode({ payload: response }));
+      expect(handler).toHaveBeenCalledWith(request.payload, { signal: expect.any(AbortSignal) });
+      expect(handler.mock.calls[0][1].signal.aborted).toBe(true);
     });
 
     test('Stream request, no response', async () => {
       const request = Readable.from(['1', '2', '3', '4']);
       request['method'] = 'POST';
       request['url'] = 'test.com/Math/sumstream';
-      request['headers'] = {};
+      request['headers'] = { 'nsc-expired': String(Date.now() - 1) };
 
       const methodResponse = { result: 10 };
       const server = getHttpServerMock();
@@ -142,6 +144,8 @@ describe('Testing Service class methods', () => {
       await setTimeout(1);
 
       expect(result).toBe(JSON.stringify({ payload: methodResponse }));
+      expect(handler).toHaveBeenCalledWith(request, { signal: expect.any(AbortSignal) });
+      expect(handler.mock.calls[0][1].signal.aborted).toBe(true);
     });
 
     test('Stream request, stream response', async () => {

@@ -26,9 +26,14 @@ export interface MethodSettings {
   response?: Record<string, unknown>;
 }
 
+/** Per-invocation utilities supplied by the framework to a method handler. */
+export interface MethodContext {
+  readonly signal: AbortSignal;
+}
+
 export interface Method {
   settings: MethodSettings;
-  new (...args: any[]): { handler: (params: any) => Promise<any> };
+  new (...args: any[]): { handler: (params: any, context: MethodContext) => Promise<any> };
 }
 
 export type ClientService<C = Client> = new (
