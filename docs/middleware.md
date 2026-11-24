@@ -80,6 +80,7 @@ interface ServiceMiddlewareContext<C = Client, S = Service> {
   service: S;
   method: string;
   params: unknown;
+  callOptions?: CallOptions;
   result?: unknown;
   error?: unknown;
   baggage?: Baggage;
@@ -92,6 +93,7 @@ interface ServiceMiddlewareContext<C = Client, S = Service> {
 - `service` 一 текущий инстанс `Service`;
 - `method` 一 имя вызываемого метода клиента;
 - `params` 一 параметры вызова метода клиента;
+- `callOptions` 一 необязательные настройки вызова (`signal`), передаваемые вторым аргументом клиенту;
 - `result` 一 результат вызова, доступен в `after`;
 - `error` 一 оригинальная ошибка, если вызов завершился ошибкой;
 - `baggage` 一 текущий baggage запроса.

@@ -38,6 +38,7 @@
 - Использование Web-streams
 - Использование Jet-streams
 - Сквозной таймаут для запросов
+- Отмена цепочки HTTP-вызовов и ограничение размера входящего потока ([подробнее](./docs/http-streams.md))
 - Трассировки
 - Межсервисное кеширование
 - Валидация входных и выходных параметров методов сервиса на основе [JSON Schema](https://json-schema.org/).
@@ -179,8 +180,10 @@ npm i
             "useStream": {
               "type": "object",
               "properties": {
-                "request": { "type": "boolean" },
-                "response": { "type": "boolean" }
+                  "request": { "type": "boolean" },
+                  "response": { "type": "boolean" },
+                  "maxRequestBytes": { "type": "integer", "minimum": 1 },
+                  "cancelOnDisconnect": { "type": "boolean" }
               }
             },
             "cache": { "type": "number" },
@@ -208,7 +211,9 @@ npm i
      - `options` 一 настройки метода;
        - `useStream` 一 использование Web-стримов для входных и выходных данных;
          - `request` 一 Web-стрим на входе;
-         - `response` 一 Web-стрим на выходе;
+          - `response` 一 Web-стрим на выходе;
+          - `maxRequestBytes` 一 необязательный лимит входящего Web-стрима в байтах;
+          - `cancelOnDisconnect` 一 отмена `MethodContext.signal` при преждевременном закрытии HTTP-ответа (по умолчанию выключена);
        - `timeout` 一 Таймаут в миллисекундах
        - `cache` 一 кеширование запроса (задается в минутах);
        - `runTimeValidation` 一 использование runtime для валидации параметров;

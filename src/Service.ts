@@ -19,6 +19,7 @@ import {
   Tag,
   Middleware,
   ServiceMiddlewareContext,
+  CallOptions,
 } from '.';
 import { Client } from './Client';
 import { NodeTracerProvider, BatchSpanProcessor } from '@opentelemetry/sdk-trace-node';
@@ -36,6 +37,7 @@ import { setTimeout } from 'node:timers/promises';
 import { promisify } from 'node:util';
 import { StreamManager } from './StreamManager';
 import { createMethodContext } from './MethodContext';
+import { RequestSizeLimit, RequestSizeLimitError } from './RequestSizeLimit';
 
 export class Service<E extends Emitter = Emitter> extends Root {
   public emitter = {} as E;
@@ -67,6 +69,12 @@ export class Service<E extends Emitter = Emitter> extends Root {
     super(options.brokerConnection, options.loggerOutputFormatter);
 
     this.serviceName = options.name;
+    for (const Method of options.methods) {
+      const limit = Method.settings.options?.useStream?.maxRequestBytes;
+      if (limit !== undefined && (!Number.isSafeInteger(limit) || limit <= 0)) {
+        throw new Error('maxRequestBytes must be a positive safe integer');
+      }
+    }
     this.logger.setLocation(this.serviceName);
     if (options.events) {
       const events = Object.keys(options.events.list) as [keyof E];
@@ -225,7 +233,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
   /**
    * Creating an object to inject into Method (business logic)
    */
-  private createObjectWithDependencies(method: Method, tracer: Tracer, baggage?: Baggage) {
+  private createObjectWithDependencies(method: Method, tracer: Tracer, baggage?: Baggage, signal?: AbortSignal) {
     const services = ServiceContainer.get(method.settings.action) || new Map<string, Dependency>();
     const instances = InstanceContainer.get(method.settings.action) || new Map<string, Instance>();
     const tags = new Map<string, Tag>();
@@ -245,10 +253,10 @@ export class Service<E extends Emitter = Emitter> extends Root {
             dependencyKey.forEach((item, index) => {
               const { dependency } = container.get(item);
               if (dependency.type === DependencyType.SERVICE) {
-                dependences[ConstructorDependencyKey][index] = new (dependency.value as Dependency)(
-                  this.broker,
+                dependences[ConstructorDependencyKey][index] = this.buildService(
+                  dependency.value as ClientService,
                   baggage,
-                  this.options.cache,
+                  { signal },
                 );
               }
               if (dependency.type === DependencyType.ADAPTER) {
@@ -285,7 +293,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
 
     if (services.size) {
       services.forEach((Dependence, key) => {
-        dependences[key] = new Dependence(this.broker, baggage, this.options.cache);
+        dependences[key] = this.buildService(Dependence as ClientService, baggage, { signal });
       });
     }
 
@@ -353,9 +361,14 @@ export class Service<E extends Emitter = Emitter> extends Root {
     }
   }
 
-  public buildService<C extends ClientService>(Client: C, baggage?: Baggage) {
-    const client = new Client(this.broker, baggage, this.options.cache, this.options.loggerOutputFormatter) as InstanceType<C> &
-      Client;
+  public buildService<C extends ClientService>(Client: C, baggage?: Baggage, callOptions?: CallOptions) {
+    const client = new Client(
+      this.broker,
+      baggage,
+      this.options.cache,
+      this.options.loggerOutputFormatter,
+    ) as InstanceType<C> & Client;
+    if (callOptions?.signal) client.withSignal(callOptions.signal);
     return this.withServiceMiddleware(client, baggage) as InstanceType<C>;
   }
 
@@ -412,19 +425,20 @@ export class Service<E extends Emitter = Emitter> extends Root {
           return method;
         }
 
-        return async (params: unknown) => {
+        return async (params: unknown, callOptions?: CallOptions) => {
           const context: ServiceMiddlewareContext<C, Service> = {
             client,
             service: this,
             method: String(propKey),
             params,
+            callOptions,
             baggage,
           };
 
           await this.runMiddleware(middlewares.before, context);
 
           try {
-            context.result = await method.call(target, context.params);
+            context.result = await method.call(target, context.params, context.callOptions);
           } catch (error) {
             context.error = error;
             context.result = this.buildMiddlewareErrorResult(error);
@@ -450,7 +464,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
     }
   }
 
-  private makeHttpSingleResponse(response: ServerResponse, data: Message) {
+  private makeHttpSingleResponse(response: ServerResponse, data: Message, statusCode?: number) {
     if (response.headersSent || response.writableEnded || response.destroyed) {
       return;
     }
@@ -459,7 +473,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
     const responseData = JSON.stringify(data);
 
     response
-      .writeHead(isError ? 500 : 200, {
+      .writeHead(statusCode ?? (isError ? 500 : 200), {
         'Content-Length': Buffer.byteLength(responseData),
         'Content-Type': 'application/json',
       })
@@ -511,6 +525,36 @@ export class Service<E extends Emitter = Emitter> extends Root {
     await this.upHTTPServer();
     this.runServiceMethodForHttp();
     this.httpServer!.on('request', async (request, response) => {
+      const controller = new AbortController();
+      let input: RequestSizeLimit | undefined;
+      const cleanup = () => {
+        response.removeListener('close', onClose);
+        response.removeListener('close', cleanup);
+        response.removeListener('finish', cleanup);
+        request.removeListener('error', onRequestError);
+        if (input) {
+          request.unpipe(input);
+          input.destroy();
+        }
+      };
+      const onClose = () => {
+        if (!response.writableFinished) {
+          controller.abort(new DOMException('Caller disconnected', 'AbortError'));
+        }
+        cleanup();
+      };
+      const onRequestError = (error: Error) => input?.destroy(error);
+      const rejectOversizedRequest = (error: Error) => {
+        request.unpipe(input);
+        request.pause();
+        controller.abort(error);
+        if (response.headersSent) {
+          response.destroy();
+        } else {
+          response.shouldKeepAlive = false;
+          this.makeHttpSingleResponse(response, this.buildErrorMessage(error, 413), 413);
+        }
+      };
       try {
         if (request.method !== 'POST' || !request.url) {
           throw new Error('Wrong http request');
@@ -524,9 +568,32 @@ export class Service<E extends Emitter = Emitter> extends Root {
           throw new Error('Wrong url or service name or action');
         }
         const baggage = this.getBaggageFromExternalHeader(request.headers as IncomingHttpHeaders & ExternalBaggage);
-        if (Method.settings.options?.useStream?.request) {
-          const result = await this.handled(request, Method, baggage);
-          if (Method.settings.options.useStream.response && result.payload instanceof Readable) {
+        const streamOptions = Method.settings.options?.useStream;
+        response.once('finish', cleanup);
+        // Size rejection also cancels cooperative work, regardless of disconnect opt-in.
+        if (streamOptions?.cancelOnDisconnect) response.once('close', onClose);
+        else response.once('close', cleanup);
+        if (streamOptions?.request) {
+          const limit = streamOptions.maxRequestBytes;
+          if (limit !== undefined) {
+            if (Number(request.headers['content-length']) > limit) {
+              rejectOversizedRequest(new RequestSizeLimitError(limit));
+              return;
+            }
+            input = new RequestSizeLimit(limit);
+            input.on('error', error => {
+              if (error instanceof RequestSizeLimitError) {
+                rejectOversizedRequest(error);
+              } else {
+                controller.abort(error);
+                response.destroy();
+              }
+            });
+            request.on('error', onRequestError);
+            request.pipe(input);
+          }
+          const result = await this.handled(input ?? request, Method, baggage, controller.signal);
+          if (streamOptions.response && result.payload instanceof Readable) {
             await this.makeHttpStreamResponse(response, result as Message<Readable>);
             return;
           }
@@ -538,7 +605,7 @@ export class Service<E extends Emitter = Emitter> extends Root {
           requestDataRaw.push(data);
         }
         const requestData = Buffer.concat(requestDataRaw).toString();
-        const result = await this.handled(JSON.parse(requestData), Method, baggage);
+        const result = await this.handled(JSON.parse(requestData), Method, baggage, controller.signal);
         if (Method.settings.options?.useStream?.response && result.payload instanceof Readable) {
           await this.makeHttpStreamResponse(response, result as Message<Readable>);
           return;
@@ -561,7 +628,12 @@ export class Service<E extends Emitter = Emitter> extends Root {
   /**
    * Run business logic for request
    */
-  private async handled(payload: unknown, Method: Method, baggage?: Partial<Baggage>): Promise<Message> {
+  private async handled(
+    payload: unknown,
+    Method: Method,
+    baggage?: Partial<Baggage>,
+    signal?: AbortSignal,
+  ): Promise<Message> {
     const subject = `${this.serviceName}.${Method.settings.action}`;
     const tracer = trace.getTracer('');
 
@@ -576,10 +648,15 @@ export class Service<E extends Emitter = Emitter> extends Root {
 
     const nextBaggage = this.getNextBaggage(span, baggage);
 
-    const invocation = createMethodContext(baggage?.expired);
+    const invocation = createMethodContext(baggage?.expired, signal);
     let streaming = false;
     try {
-      const requestedDependencies = this.createObjectWithDependencies(Method, tracer, nextBaggage);
+      const requestedDependencies = this.createObjectWithDependencies(
+        Method,
+        tracer,
+        nextBaggage,
+        invocation.context.signal,
+      );
       const context = this.createMethodContext(Method, requestedDependencies);
 
       context['logger'] = logger;
