@@ -2,6 +2,7 @@ import { Readable } from 'node:stream';
 import { finished } from 'node:stream/promises';
 import { setTimeout as delay } from 'node:timers/promises';
 import { BaseMethod, MethodContext, Service } from '../';
+import { createMethodContext } from '../MethodContext';
 
 describe('Method handler context', () => {
   const service = new Service({ name: 'ContextTest', methods: [] });
@@ -110,9 +111,17 @@ describe('Method handler context', () => {
   });
 
   test.each(['end', 'destroy', 'error'])('cleans up a stream deadline on %s', async mode => {
-    const stream = new Readable({ read() {} });
-    stream.on('error', () => {});
-    const completion = finished(stream).catch(() => {});
+    const stream = new Readable({
+      read() {
+        /* Deliberately idle stream. */
+      },
+    });
+    stream.on('error', () => {
+      /* The test observes errors through finished. */
+    });
+    const completion = finished(stream).catch(() => {
+      /* Expected for destroy/error modes. */
+    });
     await run(async () => stream, Date.now() + 100, true);
     expect(jest.getTimerCount()).toBe(1);
     if (mode === 'end') {
@@ -123,6 +132,38 @@ describe('Method handler context', () => {
     }
     jest.runAllTicks();
     await completion;
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  test('combines parent cancellation and deadline without replacing the handler signal', () => {
+    const parent = new AbortController();
+    const other = new AbortController();
+    const remove = jest.spyOn(other.signal, 'removeEventListener');
+    const invocation = createMethodContext(Date.now() + 100, parent.signal, other.signal);
+    const reason = new Error('cancelled by caller');
+    parent.abort(reason);
+    expect(invocation.context.signal.reason).toBe(reason);
+    expect(other.signal.aborted).toBe(false);
+    expect(remove).toHaveBeenCalled();
+    expect(jest.getTimerCount()).toBe(0);
+    invocation.dispose();
+  });
+
+  test('removes earlier subscriptions when another parent is already aborted', () => {
+    const parent = new AbortController();
+    const remove = jest.spyOn(parent.signal, 'removeEventListener');
+    const invocation = createMethodContext(Date.now() + 100, parent.signal, AbortSignal.abort());
+    expect(invocation.context.signal.aborted).toBe(true);
+    expect(remove).toHaveBeenCalled();
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  test('disposing a context detaches external cancellation', () => {
+    const parent = new AbortController();
+    const invocation = createMethodContext(Date.now() + 100, parent.signal);
+    invocation.dispose();
+    parent.abort();
+    expect(invocation.context.signal.aborted).toBe(false);
     expect(jest.getTimerCount()).toBe(0);
   });
 });

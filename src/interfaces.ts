@@ -9,6 +9,10 @@ export interface MethodOptions {
   useStream?: {
     request?: boolean;
     response?: boolean;
+    /** Maximum incoming request size in bytes. Unlimited when omitted. */
+    maxRequestBytes?: number;
+    /** Cancel the handler when the caller disconnects before the response finishes. */
+    cancelOnDisconnect?: boolean;
   };
   cache?: number; // in minuts
   timeout?: number; // in milliseconds
@@ -29,6 +33,10 @@ export interface MethodSettings {
 /** Per-invocation utilities supplied by the framework to a method handler. */
 export interface MethodContext {
   readonly signal: AbortSignal;
+}
+
+export interface CallOptions {
+  signal?: AbortSignal;
 }
 
 export interface Method {
@@ -87,6 +95,7 @@ export interface ClientParam<E extends Emitter = Emitter> {
   loggerOutputFormatter?: Logs.OutputFormatter;
   events?: Events<E>;
   Ref?: object;
+  signal?: AbortSignal;
 }
 
 export interface GetListenerOptions {
@@ -206,6 +215,7 @@ export interface ServiceMiddlewareContext<C = Client, S = Service> {
   service: S;
   method: string;
   params: unknown;
+  callOptions?: CallOptions;
   result?: unknown;
   error?: unknown;
   baggage?: Baggage;

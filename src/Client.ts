@@ -8,6 +8,7 @@ import { setTimeout } from 'node:timers/promises';
 import { CacheSettings } from '.';
 import {
   Baggage,
+  CallOptions,
   ClientParam,
   Emitter,
   EmitterStreamEvent,
@@ -26,6 +27,8 @@ import { StreamManager } from './StreamManager';
 import { StreamBatchMsgFetcher } from './StreamBatchMsgFetcher';
 import { StreamSingleMsgFetcher } from './StreamSingleMsgFetcher';
 import { Meter } from './Meter';
+import { createMethodContext } from './MethodContext';
+import { abortable } from './abortable';
 
 type RequestData = Record<string, unknown> | Readable;
 export class Client<E extends Emitter = Emitter> extends Root {
@@ -34,11 +37,12 @@ export class Client<E extends Emitter = Emitter> extends Root {
   private cache?: CacheSettings;
   private events?: Events<E>;
   private Ref?: object;
+  private signal?: AbortSignal;
 
   private subscriptions = new Map<keyof E, Subscription | StreamSingleMsgFetcher>();
   private REQUEST_HTTP_SETTINGS_TIMEOUT = 1000; // ms
 
-  constructor({ broker, events, loggerOutputFormatter, serviceName, baggage, cache, Ref }: ClientParam<E>) {
+  constructor({ broker, events, loggerOutputFormatter, serviceName, baggage, cache, Ref, signal }: ClientParam<E>) {
     super(broker, loggerOutputFormatter);
     this.logger.setLocation(serviceName);
     this.serviceName = serviceName;
@@ -46,6 +50,13 @@ export class Client<E extends Emitter = Emitter> extends Root {
     this.cache = cache;
     this.events = events;
     this.Ref = Ref;
+    this.signal = signal;
+  }
+
+  /** Bind a framework-created client to its parent invocation. */
+  public withSignal(signal: AbortSignal): this {
+    this.signal = signal;
+    return this;
   }
 
   private async startWatch(
@@ -220,10 +231,20 @@ export class Client<E extends Emitter = Emitter> extends Root {
     subject: string,
     data: P,
     { options, request, response }: MethodSettings,
+    callOptions?: CallOptions,
   ): Promise<R> {
     const tracer = opentelemetry.trace.getTracer('');
     const span = tracer.startSpan(subject, undefined, this.getContext(this.baggage));
+    let invocation: ReturnType<typeof createMethodContext> | undefined;
+    let responseStream: Readable | undefined;
     try {
+      if (callOptions?.signal && !options?.useStream) {
+        throw new Error('Cancellation is not supported for NATS request/reply');
+      }
+      if (options?.useStream) {
+        this.signal?.throwIfAborted();
+        callOptions?.signal?.throwIfAborted();
+      }
       if (options?.runTimeValidation?.request && request) {
         this.validate(data, request);
       }
@@ -237,23 +258,35 @@ export class Client<E extends Emitter = Emitter> extends Root {
       if (timeout <= 0) {
         throw new Error('Timeout request service ' + subject);
       }
+      if (options?.useStream) {
+        invocation = createMethodContext(expired, this.signal, callOptions?.signal);
+      }
 
       let key = '';
 
       if (options?.cache && !this.isStream(data) && this.cache) {
+        const cacheTimeout = new AbortController();
         try {
           key = this.createCacheKey(subject, data);
-          const result = await Promise.race<any>([this.cache.service.get(key), setTimeout(this.cache.timeout, null)]);
+          const lookup = Promise.race([
+            this.cache.service.get(key),
+            setTimeout(this.cache.timeout, null, { signal: cacheTimeout.signal }),
+          ]);
+          const result = invocation ? await abortable(lookup, invocation.context.signal) : await lookup;
           if (result) {
             return JSON.parse(result);
           }
         } catch (error) {
+          invocation?.context.signal.throwIfAborted();
           this.logger.warn('get cache: ', error);
+        } finally {
+          cacheTimeout.abort();
         }
       }
-      const result = options?.useStream
-        ? await this.makeHttpRequest(subject, message, options, timeout)
+      const result = invocation
+        ? await this.makeHttpRequest(subject, message, options ?? {}, expired, invocation)
         : await this.makeBrokerRequest(subject, message, timeout);
+      if (this.isStream(result.payload)) responseStream = result.payload;
 
       if (result.error) {
         throw new Error(result.error.message ?? result.error);
@@ -268,19 +301,21 @@ export class Client<E extends Emitter = Emitter> extends Root {
 
       return result.payload;
     } catch (error) {
+      responseStream?.destroy();
       span.setAttribute('error', true);
       span.setAttribute('error.kind', error);
       this.logger.error(error);
       throw error;
     } finally {
+      if (!responseStream) invocation?.dispose();
       span.end();
     }
   }
 
-  private async getHTTPSettingsFromRemoteService() {
+  private async getHTTPSettingsFromRemoteService(timeout = this.REQUEST_HTTP_SETTINGS_TIMEOUT) {
     const subject = `${this.serviceName}.${this.SERVICE_SUBJECT_FOR_GET_HTTP_SETTINGS}`;
     const result = await this.broker.request(subject, Buffer.from(JSON.stringify('')), {
-      timeout: this.REQUEST_HTTP_SETTINGS_TIMEOUT,
+      timeout,
     });
     const { ip, port } = JSONCodec<HttpSettings>().decode(result.data);
     if (!ip || !port) {
@@ -311,12 +346,49 @@ export class Client<E extends Emitter = Emitter> extends Root {
     subject: string,
     message: Message | Message<Readable>,
     options: MethodOptions,
-    timeout: number,
+    expired: number,
+    invocation: ReturnType<typeof createMethodContext>,
   ): Promise<Message<any>> {
+    const { signal } = invocation.context;
+    let request: http.ClientRequest | undefined;
+    let response: http.IncomingMessage | undefined;
+    const upload = this.isStream(message.payload) ? message.payload : undefined;
+    let handedOff = false;
+    let cleanedUp = false;
+    const onUploadError = (error: Error) => request?.destroy(error);
+    const cleanup = () => {
+      if (cleanedUp) return;
+      cleanedUp = true;
+      invocation.dispose();
+      signal.removeEventListener('abort', abort);
+      response?.removeListener('end', cleanup);
+      response?.removeListener('close', cleanup);
+      upload?.removeListener('error', onUploadError);
+      upload?.unpipe(request);
+      if (upload && !upload.readableEnded) upload.destroy();
+      if (request && !request.writableFinished) request.destroy();
+    };
+    const abort = () => {
+      request?.destroy(signal.reason);
+      response?.destroy(signal.reason);
+      upload?.unpipe(request);
+      // The error is delivered by the request/response, not emitted a second time on the source.
+      upload?.destroy();
+    };
     try {
-      const { ip, port } = await this.getHTTPSettingsFromRemoteService();
+      signal.throwIfAborted();
+      signal.addEventListener('abort', abort, { once: true });
+      const remaining = expired - Date.now();
+      if (remaining <= 0) {
+        throw new DOMException('End-to-end timeout expired', 'TimeoutError');
+      }
+      const { ip, port } = await abortable(
+        this.getHTTPSettingsFromRemoteService(Math.min(this.REQUEST_HTTP_SETTINGS_TIMEOUT, remaining)),
+        signal,
+      );
+      signal.throwIfAborted();
 
-      return await new Promise(resolve => {
+      return await new Promise<Message<any>>((resolve, reject) => {
         const serviceActionPath = subject.split('.');
         const headersFromBaggage = this.convertBaggaggeToExternalHeader(message.baggage);
 
@@ -329,45 +401,46 @@ export class Client<E extends Emitter = Emitter> extends Root {
           headers['Content-Length'] = Buffer.byteLength(JSON.stringify(message.payload));
         }
 
-        const request = http.request(
+        request = http.request(
           {
             host: ip,
             port,
             path: `/${serviceActionPath.join('/')}`,
             method: 'POST',
             headers,
-            timeout,
           },
-          async response => {
-            if (options?.useStream?.response && response.statusCode !== 500) {
+          incoming => {
+            response = incoming;
+            // Keep transport cancellation active until the body ends, not just until headers arrive.
+            response.once('end', cleanup);
+            response.once('close', cleanup);
+            response.on('error', reject);
+            if (options.useStream?.response && (response.statusCode ?? 200) < 300) {
+              handedOff = true;
               resolve({ payload: response });
               return;
             }
 
-            const data: Buffer[] = [];
-            for await (const chunk of response) {
-              data.push(chunk);
-            }
-
-            const responseDataString = Buffer.concat(data).toString();
-            try {
-              resolve(JSON.parse(responseDataString));
-            } catch (error) {
-              const errorMessage = new Error(`${error?.message}. Subject: ${subject} `);
-              resolve(this.buildErrorMessage(errorMessage));
-            }
+            const readResponse = async () => {
+              const data: Buffer[] = [];
+              for await (const chunk of incoming) data.push(chunk);
+              const result = JSON.parse(Buffer.concat(data).toString());
+              if ((incoming.statusCode ?? 200) >= 300 && !result.error) {
+                throw new Error(`HTTP ${incoming.statusCode}. Subject: ${subject}`);
+              }
+              return result;
+            };
+            readResponse().then(resolve, reject);
           },
         );
 
         request.on('error', error => {
-          const errorMessage = new Error(`${error?.message}. Subject: ${subject} `);
-          resolve(this.buildErrorMessage(errorMessage));
+          response?.destroy(error);
+          reject(error);
         });
 
         if (this.isStream(message.payload)) {
-          message.payload.on('error', error => {
-            request.destroy(error);
-          });
+          message.payload.on('error', onUploadError);
           message.payload.pipe(request);
           return;
         }
@@ -376,8 +449,13 @@ export class Client<E extends Emitter = Emitter> extends Root {
         request.end();
       });
     } catch (error) {
-      const errorMessage = new Error(`${error?.message}. Subject: ${subject} `);
-      return this.buildErrorMessage(errorMessage);
+      request?.destroy();
+      response?.destroy();
+      upload?.unpipe(request);
+      upload?.destroy();
+      throw error;
+    } finally {
+      if (!handedOff) cleanup();
     }
   }
 
